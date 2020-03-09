@@ -94,7 +94,7 @@ setup(
         "utils_nlp",
     ],
     dependency_links=[
-        "git+git@github.com:microsoft/nlp-recipes.git@master#egg=utils_nlp"
+        "git+git@github.com:microsoft/nlp-recipes.git@master#egg=utils_nlp-0"
     ],
     extras_require={},
     use_scm_version=False,
