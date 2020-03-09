@@ -91,8 +91,11 @@ setup(
         "fairseq==0.8.0",
         "seqeval==0.0.12",
         "transformers==2.3.0",
+        "utils_nlp",
     ],
-    dependency_links=[],
+    dependency_links=[
+        "git+git@github.com:microsoft/nlp-recipes.git@master#egg=utils_nlp"
+    ],
     extras_require={},
     use_scm_version=False,
     setup_requires=[],
