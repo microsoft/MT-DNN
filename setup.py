@@ -20,7 +20,7 @@ def read(*names, **kwargs):
 
 
 setup(
-    name="mt_dnn",
+    name="mtdnn",
     version=VERSION,
     license=LICENSE,
     description="Multi-Task Deep Neural Networks for Natural Language Understanding. Developed by Microsoft Research AI",
