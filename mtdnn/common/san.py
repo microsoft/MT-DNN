@@ -11,11 +11,11 @@ from pytorch_pretrained_bert.modeling import BertConfig, BertLayerNorm, BertMode
 from torch.nn.parameter import Parameter
 from torch.nn.utils import weight_norm
 
-from utils_nlp.models.mtdnn.common.dropout_wrapper import DropoutWrapper
-from utils_nlp.models.mtdnn.common.optimizer import weight_norm as WN
-from utils_nlp.models.mtdnn.common.similarity import FlatSimilarityWrapper, SelfAttnWrapper
-from utils_nlp.models.mtdnn.common.types import EncoderModelType, TaskType
-from utils_nlp.models.mtdnn.configuration_mtdnn import MTDNNConfig
+from mtdnn.common.dropout_wrapper import DropoutWrapper
+from mtdnn.common.optimizer import weight_norm as WN
+from mtdnn.common.similarity import FlatSimilarityWrapper, SelfAttnWrapper
+from mtdnn.common.types import EncoderModelType, TaskType
+from mtdnn.configuration_mtdnn import MTDNNConfig
 
 SMALL_POS_NUM = 1.0e-30
 
@@ -54,16 +54,24 @@ class SANClassifier(nn.Module):
     https://arxiv.org/abs/1804.07888
     """
 
-    def __init__(self, x_size, h_size, label_size, opt={}, prefix="decoder", dropout=None):
+    def __init__(
+        self, x_size, h_size, label_size, opt={}, prefix="decoder", dropout=None
+    ):
         super(SANClassifier, self).__init__()
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
         self.prefix = prefix
-        self.query_wsum = SelfAttnWrapper(x_size, prefix="mem_cum", opt=opt, dropout=self.dropout)
+        self.query_wsum = SelfAttnWrapper(
+            x_size, prefix="mem_cum", opt=opt, dropout=self.dropout
+        )
         self.attn = FlatSimilarityWrapper(x_size, h_size, prefix, opt, self.dropout)
-        self.rnn_type = "{}{}".format(opt.get("{}_rnn_type".format(prefix), "gru").upper(), "Cell")
+        self.rnn_type = "{}{}".format(
+            opt.get("{}_rnn_type".format(prefix), "gru").upper(), "Cell"
+        )
         self.rnn = getattr(nn, self.rnn_type)(x_size, h_size)
         self.num_turn = opt.get("{}_num_turn".format(prefix), 5)
         self.opt = opt
@@ -110,7 +118,9 @@ class SANClassifier(nn.Module):
                     h0 = self.rnn(x_sum, h0)
         if self.mem_type == 1:
             mask = self._generate_mask(
-                self.alpha.data.new(x.size(0), self.num_turn), self.mem_random_drop, self.training
+                self.alpha.data.new(x.size(0), self.num_turn),
+                self.mem_random_drop,
+                self.training,
             )
             mask = [m.contiguous() for m in torch.unbind(mask, 1)]
             tmp_scores_list = [
@@ -196,13 +206,23 @@ class SANBERTNetwork(nn.Module):
         self.apply(init_weights)
 
     def forward(
-        self, input_ids, token_type_ids, attention_mask, premise_mask=None, hyp_mask=None, task_id=0
+        self,
+        input_ids,
+        token_type_ids,
+        attention_mask,
+        premise_mask=None,
+        hyp_mask=None,
+        task_id=0,
     ):
         if self.encoder_type == EncoderModelType.ROBERTA:
             sequence_output = self.bert.extract_features(input_ids)
             pooled_output = self.pooler(sequence_output)
         else:
-            all_encoder_layers, pooled_output = self.bert(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
+            all_encoder_layers, pooled_output = self.bert(
+                input_ids=input_ids,
+                token_type_ids=token_type_ids,
+                attention_mask=attention_mask,
+            )
             sequence_output = all_encoder_layers[-1]
 
         decoder_opt = self.decoder_opts[task_id]
@@ -239,7 +259,9 @@ class SANBERTNetwork(nn.Module):
     # TODO - Move to training step
     def _generate_tasks_decoding_scoring_options(self):
         """ Enumerate over tasks and setup decoding and scoring list for training """
-        assert len(self.tasks_nclass_list) > 0, "Number of classes to train for cannot be 0"
+        assert (
+            len(self.tasks_nclass_list) > 0
+        ), "Number of classes to train for cannot be 0"
         for idx, task_num_labels in enumerate(self.tasks_nclass_list):
             print(f"idx: {idx}, number of task labels: {task_num_labels}")
             decoder_opt = self.decoder_opts[idx]

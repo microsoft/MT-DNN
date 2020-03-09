@@ -7,9 +7,8 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.nn.utils import weight_norm
 
-from utils_nlp.models.mtdnn.common.activation_functions import (activation,
-                                                                init_wrapper)
-from utils_nlp.models.mtdnn.common.dropout_wrapper import DropoutWrapper
+from mtdnn.common.activation_functions import activation, init_wrapper
+from mtdnn.common.dropout_wrapper import DropoutWrapper
 
 
 class DotProduct(nn.Module):
@@ -59,7 +58,9 @@ class DotProductProject(nn.Module):
                 torch.ones(1, 1, 1) / (self.hidden_size ** 0.5), requires_grad=False
             )
         else:
-            self.sclalar = Parameter(torch.ones(1, 1, self.hidden_size), requires_grad=True)
+            self.sclalar = Parameter(
+                torch.ones(1, 1, self.hidden_size), requires_grad=True
+            )
 
     def forward(self, x1, x2):
         assert x1.size(2) == x2.size(2)
@@ -134,8 +135,12 @@ class BilinearSum(nn.Module):
             x1 = self.dropout(x1)
             x2 = self.dropout(x2)
 
-        x1_logits = self.x_linear(x1.contiguous().view(-1, x1.size(-1))).view(x1.size(0), -1, 1)
-        x2_logits = self.y_linear(x2.contiguous().view(-1, x2.size(-1))).view(x2.size(0), 1, -1)
+        x1_logits = self.x_linear(x1.contiguous().view(-1, x1.size(-1))).view(
+            x1.size(0), -1, 1
+        )
+        x2_logits = self.y_linear(x2.contiguous().view(-1, x2.size(-1))).view(
+            x2.size(0), 1, -1
+        )
 
         shape = (x1.size(0), x1.size(1), x2.size())
         scores = x1_logits.expand_as(shape) + x2_logits.expand_as(shape)
@@ -152,7 +157,9 @@ class Trilinear(nn.Module):
         self.x_dot_linear = nn.Linear(x1_dim, 1, bias=False)
         self.y_linear = nn.Linear(x2_dim, 1, bias=False)
         self.layer_norm_on = opt.get("{}_norm_on".format(self.prefix), False)
-        self.init = init_wrapper(opt.get("{}_init".format(self.prefix), "xavier_uniform"))
+        self.init = init_wrapper(
+            opt.get("{}_init".format(self.prefix), "xavier_uniform")
+        )
         if self.layer_norm_on:
             self.x_linear = weight_norm(self.x_linear)
             self.x_dot_linear = weight_norm(self.x_dot_linear)
@@ -173,8 +180,12 @@ class Trilinear(nn.Module):
             x1 = self.dropout(x1)
             x2 = self.dropout(x2)
 
-        x1_logits = self.x_linear(x1.contiguous().view(-1, x1.size(-1))).view(x1.size(0), -1, 1)
-        x2_logits = self.y_linear(x2.contiguous().view(-1, x2.size(-1))).view(x2.size(0), 1, -1)
+        x1_logits = self.x_linear(x1.contiguous().view(-1, x1.size(-1))).view(
+            x1.size(0), -1, 1
+        )
+        x2_logits = self.y_linear(x2.contiguous().view(-1, x2.size(-1))).view(
+            x2.size(0), 1, -1
+        )
         x1_dot = (
             self.x_dot_linear(x1.contiguous().view(-1, x1.size(-1)))
             .view(x1.size(0), -1, 1)
@@ -190,20 +201,30 @@ class Trilinear(nn.Module):
 class SimilarityWrapper(nn.Module):
     def __init__(self, x1_dim, x2_dim, prefix="attention", opt={}, dropout=None):
         super(SimilarityWrapper, self).__init__()
-        self.score_func_str = opt.get("{}_sim_func".format(prefix), "dotproductproject").lower()
+        self.score_func_str = opt.get(
+            "{}_sim_func".format(prefix), "dotproductproject"
+        ).lower()
         self.score_func = None
         if self.score_func_str == "dotproduct":
-            self.score_func = DotProduct(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = DotProduct(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
         elif self.score_func_str == "dotproductproject":
             self.score_func = DotProductProject(
                 x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
             )
         elif self.score_func_str == "bilinear":
-            self.score_func = Bilinear(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = Bilinear(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
         elif self.score_func_str == "bilinearsum":
-            self.score_func = BilinearSum(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = BilinearSum(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
         elif self.score_func_str == "trilinear":
-            self.score_func = Trilinear(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = Trilinear(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
         else:
             raise NotImplementedError
 
@@ -213,11 +234,15 @@ class SimilarityWrapper(nn.Module):
 
 
 class AttentionWrapper(nn.Module):
-    def __init__(self, x1_dim, x2_dim, x3_dim=None, prefix="attention", opt={}, dropout=None):
+    def __init__(
+        self, x1_dim, x2_dim, x3_dim=None, prefix="attention", opt={}, dropout=None
+    ):
         super(AttentionWrapper, self).__init__()
         self.prefix = prefix
         self.att_dropout = opt.get("{}_att_dropout".format(self.prefix), 0)
-        self.score_func = SimilarityWrapper(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+        self.score_func = SimilarityWrapper(
+            x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+        )
         self.drop_diagonal = opt.get("{}_drop_diagonal".format(self.prefix), False)
         self.output_size = x2_dim if x3_dim is None else x3_dim
 
@@ -277,7 +302,9 @@ class MLPSelfAttn(nn.Module):
         self.layer_norm_on = opt.get("{}_norm_on".format(self.prefix), False)
         self.f = activation(opt.get("{}_activation".format(self.prefix), "relu"))
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
         if self.layer_norm_on:
@@ -309,7 +336,16 @@ class SelfAttnWrapper(nn.Module):
 
 
 class DeepAttentionWrapper(nn.Module):
-    def __init__(self, x1_dim, x2_dim, x3_dims, att_cnt, prefix="deep_att", opt=None, dropout=None):
+    def __init__(
+        self,
+        x1_dim,
+        x2_dim,
+        x3_dims,
+        att_cnt,
+        prefix="deep_att",
+        opt=None,
+        dropout=None,
+    ):
         super(DeepAttentionWrapper, self).__init__()
         self.opt = {} if opt is None else opt
         self.prefix = prefix
@@ -318,7 +354,9 @@ class DeepAttentionWrapper(nn.Module):
         self.x3_dims = x3_dims
 
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
 
@@ -326,7 +364,12 @@ class DeepAttentionWrapper(nn.Module):
         for i in range(0, att_cnt):
             if opt["multihead_on"]:
                 attention = MultiheadAttentionWrapper(
-                    self.x1_dim, self.x2_dim, self.x3_dims[i], prefix, opt, dropout=dropout
+                    self.x1_dim,
+                    self.x2_dim,
+                    self.x3_dims[i],
+                    prefix,
+                    opt,
+                    dropout=dropout,
                 )
             else:
                 attention = AttentionWrapper(
@@ -356,7 +399,9 @@ class BilinearFlatSim(nn.Module):
         if self.weight_norm_on:
             self.linear = weight_norm(self.linear)
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
 
@@ -384,7 +429,9 @@ class SimpleFlatSim(nn.Module):
         if self.weight_norm_on:
             self.linear = weight_norm(self.linear)
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
 
@@ -414,7 +461,9 @@ class FlatSim(nn.Module):
         if self.weight_norm_on:
             self.linear = weight_norm(self.linear)
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
 
@@ -428,7 +477,9 @@ class FlatSim(nn.Module):
         y = self.dropout(y)
         y = y.unsqueeze(1).expand_as(x)
 
-        flat_x = torch.cat([x, y, x * y], 2).contiguous().view(x.size(0) * x.size(1), -1)
+        flat_x = (
+            torch.cat([x, y, x * y], 2).contiguous().view(x.size(0) * x.size(1), -1)
+        )
         flat_scores = self.linear(flat_x)
         scores = flat_scores.contiguous().view(x.size(0), -1)
         scores.data.masked_fill_(x_mask.data, -float("inf"))
@@ -446,7 +497,9 @@ class FlatSimV2(nn.Module):
         if self.weight_norm_on:
             self.linear = weight_norm(self.linear)
         if dropout is None:
-            self.dropout = DropoutWrapper(opt.get("{}_dropout_p".format(self.prefix), 0))
+            self.dropout = DropoutWrapper(
+                opt.get("{}_dropout_p".format(self.prefix), 0)
+            )
         else:
             self.dropout = dropout
 
@@ -483,11 +536,17 @@ class FlatSimilarityWrapper(nn.Module):
                 x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
             )
         elif self.score_func_str == "simple":
-            self.score_func = SimpleFlatSim(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = SimpleFlatSim(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
         elif self.score_func_str == "flatsim":
-            self.score_func = FlatSim(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = FlatSim(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
         else:
-            self.score_func = FlatSimV2(x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout)
+            self.score_func = FlatSimV2(
+                x1_dim, x2_dim, prefix=prefix, opt=opt, dropout=dropout
+            )
 
     def forward(self, x1, x2, mask):
         scores = self.score_func(x1, x2, mask)
@@ -499,7 +558,9 @@ class MultiheadAttentionWrapper(nn.Module):
     See "Attention Is All You Need" for more details.
     """
 
-    def __init__(self, query_dim, key_dim, value_dim, prefix="attention", opt={}, dropout=None):
+    def __init__(
+        self, query_dim, key_dim, value_dim, prefix="attention", opt={}, dropout=None
+    ):
         super().__init__()
         self.prefix = prefix
 
@@ -570,7 +631,10 @@ class MultiheadAttentionWrapper(nn.Module):
         if self.proj_on:
             if self.dropout:
                 q, k = self.dropout(q), self.dropout(k)
-            q, k = [self.f(proj(input)) for input, proj in zip([query, key], self.proj_modules)]
+            q, k = [
+                self.f(proj(input))
+                for input, proj in zip([query, key], self.proj_modules)
+            ]
 
         src_len = k.size(0)
         if key_padding_mask is not None:
@@ -580,9 +644,21 @@ class MultiheadAttentionWrapper(nn.Module):
         if self.scale_on:
             q *= self.scaling
 
-        q = q.contiguous().view(tgt_len, bsz * self.num_heads, self.qkv_head_dim[0]).transpose(0, 1)
-        k = k.contiguous().view(src_len, bsz * self.num_heads, self.qkv_head_dim[1]).transpose(0, 1)
-        v = v.contiguous().view(src_len, bsz * self.num_heads, self.qkv_head_dim[2]).transpose(0, 1)
+        q = (
+            q.contiguous()
+            .view(tgt_len, bsz * self.num_heads, self.qkv_head_dim[0])
+            .transpose(0, 1)
+        )
+        k = (
+            k.contiguous()
+            .view(src_len, bsz * self.num_heads, self.qkv_head_dim[1])
+            .transpose(0, 1)
+        )
+        v = (
+            v.contiguous()
+            .view(src_len, bsz * self.num_heads, self.qkv_head_dim[2])
+            .transpose(0, 1)
+        )
 
         attn_weights = torch.bmm(q, k.transpose(1, 2))
         assert list(attn_weights.size()) == [bsz * self.num_heads, tgt_len, src_len]
@@ -611,7 +687,11 @@ class MultiheadAttentionWrapper(nn.Module):
         attn_weights = self.dropout(attn_weights)
 
         attn = torch.bmm(attn_weights, v)
-        assert list(attn.size()) == [bsz * self.num_heads, tgt_len, self.qkv_head_dim[2]]
+        assert list(attn.size()) == [
+            bsz * self.num_heads,
+            tgt_len,
+            self.qkv_head_dim[2],
+        ]
         attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, -1)
 
         # output_shape: Batch * Time * Channel

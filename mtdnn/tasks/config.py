@@ -16,11 +16,11 @@ from typing import Union
 
 import yaml
 
-from utils_nlp.models.mtdnn.common.loss import LossCriterion
-from utils_nlp.models.mtdnn.common.metrics import Metric
-from utils_nlp.models.mtdnn.common.types import DataFormat, EncoderModelType, TaskType
-from utils_nlp.models.mtdnn.common.vocab import Vocabulary
-from utils_nlp.models.mtdnn.common.utils import MTDNNCommonUtils
+from mtdnn.common.loss import LossCriterion
+from mtdnn.common.metrics import Metric
+from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
+from mtdnn.common.vocab import Vocabulary
+from mtdnn.common.utils import MTDNNCommonUtils
 
 
 logger = MTDNNCommonUtils.setup_logging()
@@ -44,7 +44,9 @@ class TaskConfig(object):
             try:
                 setattr(self, key, value)
             except AttributeError as err:
-                logger.error(f"[ERROR] - Unable to set {key} with value {value} for {self}")
+                logger.error(
+                    f"[ERROR] - Unable to set {key} with value {value} for {self}"
+                )
                 raise err
 
     def to_dict(self):
@@ -98,7 +100,13 @@ class MNLITaskConfig(TaskConfig):
         self.dropout_p = kwargs.pop("dropout_p", 0.3)
         self.split_names = kwargs.pop(
             "split_names",
-            ["train", "matched_dev", "mismatched_dev", "matched_test", "mismatched_test"],
+            [
+                "train",
+                "matched_dev",
+                "mismatched_dev",
+                "matched_test",
+                "mismatched_test",
+            ],
         )
 
 
@@ -660,18 +668,26 @@ class MTDNNTaskDefs:
 
     def __init__(self, task_dict_or_file: Union[str, dict]):
 
-        assert task_dict_or_file, "Please pass in a task dict or definition file in yaml or json"
+        assert (
+            task_dict_or_file
+        ), "Please pass in a task dict or definition file in yaml or json"
         self._task_def_dic = {}
         self._configured_tasks = []  # list of configured tasks
         if isinstance(task_dict_or_file, dict):
             self._task_def_dic = task_dict_or_file
         elif isinstance(task_dict_or_file, str):
-            assert os.path.exists(task_dict_or_file), "Task definition file does not exist"
+            assert os.path.exists(
+                task_dict_or_file
+            ), "Task definition file does not exist"
             assert os.path.isfile(task_dict_or_file), "Task definition must be a file"
 
             task_def_filepath, ext = os.path.splitext(task_dict_or_file)
             ext = ext[1:].lower()
-            assert ext in ["json", "yml", "yaml",], "Definition file must be in JSON or YAML format"
+            assert ext in [
+                "json",
+                "yml",
+                "yaml",
+            ], "Definition file must be in JSON or YAML format"
 
             self._task_def_dic = (
                 yaml.safe_load(open(task_dict_or_file))
@@ -695,7 +711,9 @@ class MTDNNTaskDefs:
 
         uniq_encoderType = set()
         for name, params in self._task_def_dic.items():
-            assert "_" not in name, f"task name should not contain '_', current task name: {name}"
+            assert (
+                "_" not in name
+            ), f"task name should not contain '_', current task name: {name}"
 
             # Create a singleton to create tasks
             task = task_creator.from_dict(task_name=name, opts=params)
@@ -703,7 +721,9 @@ class MTDNNTaskDefs:
             n_class_map[name] = task.n_class
             data_type_map[name] = DataFormat[task.data_format]
             task_type_map[name] = TaskType[task.task_type]
-            metric_meta_map[name] = tuple(Metric[metric_name] for metric_name in task.metric_meta)
+            metric_meta_map[name] = tuple(
+                Metric[metric_name] for metric_name in task.metric_meta
+            )
             enable_san_map[name] = task.enable_san
             uniq_encoderType.add(EncoderModelType[task.encoder_type])
 

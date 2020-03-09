@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 
-from utils_nlp.models.mtdnn.common.types import EncoderModelType
+from mtdnn.common.types import EncoderModelType
 
 LARGE_NEG_NUM = -1.0e5
 tokenizer = None
@@ -22,7 +22,14 @@ def remove_punc(text):
 
 
 def calc_tokenized_span_range(
-    context, question, answer, answer_start, answer_end, tokenizer, encoderModelType, verbose=False
+    context,
+    question,
+    answer,
+    answer_start,
+    answer_end,
+    tokenizer,
+    encoderModelType,
+    verbose=False,
 ):
     """
     :param context:
@@ -97,7 +104,9 @@ def parse_squad_label(label):
     return answer_start, answer_end, answer, is_impossible
 
 
-def _improve_answer_span(doc_tokens, input_start, input_end, tokenizer, orig_answer_text):
+def _improve_answer_span(
+    doc_tokens, input_start, input_end, tokenizer, orig_answer_text
+):
     """Returns tokenized answer spans that better match the annotated answer."""
     # It is copyed from: https://github.com/google-research/bert/blob/master/run_squad.py
     # The SQuAD annotations are character based. We first project them to
@@ -288,7 +297,9 @@ def mrc_feature(
     orig_to_tok_index = []
     all_doc_tokens = []
     query_ids = tokenizer.tokenize(query)
-    query_ids = query_ids[0:max_query_len] if len(query_ids) > max_query_len else query_ids
+    query_ids = (
+        query_ids[0:max_query_len] if len(query_ids) > max_query_len else query_ids
+    )
     max_tokens_for_doc = max_seq_len - len(query_ids) - 3
     unique_id_cp = unique_id
     for (i, token) in enumerate(doc_tokens):
@@ -326,7 +337,9 @@ def mrc_feature(
             split_token_index = doc_span.start + i
             token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
 
-            is_max_context = _check_is_max_context(doc_spans, doc_span_index, split_token_index)
+            is_max_context = _check_is_max_context(
+                doc_spans, doc_span_index, split_token_index
+            )
             token_is_max_context[len(tokens)] = is_max_context
             tokens.append(all_doc_tokens[split_token_index])
             segment_ids.append(1)
@@ -531,7 +544,9 @@ def masking_score(mask, batch_meta, start, end, keep_first_token=False):
     return start, end
 
 
-def extract_answer(batch_meta, batch_data, start, end, keep_first_token=False, max_len=5):
+def extract_answer(
+    batch_meta, batch_data, start, end, keep_first_token=False, max_len=5
+):
     doc_len = start.size(1)
     pos_enc = position_encoding(doc_len, max_len)
     token_is_max_contexts = batch_meta["token_is_max_context"]

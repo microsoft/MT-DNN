@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 from random import shuffle
 
-from utils_nlp.models.mtdnn.common.metrics import calc_metrics
+from mtdnn.common.metrics import calc_metrics
 
 
 def load_scitail(file):
@@ -43,7 +43,12 @@ def load_snli(file, header=True):
                 import pdb
 
                 pdb.set_trace()
-            sample = {"uid": blocks[0], "premise": blocks[7], "hypothesis": blocks[8], "label": lab}
+            sample = {
+                "uid": blocks[0],
+                "premise": blocks[7],
+                "hypothesis": blocks[8],
+                "label": lab,
+            }
             rows.append(sample)
             cnt += 1
     return rows
@@ -68,7 +73,12 @@ def load_mnli(file, header=True, multi_snli=False, is_train=True):
                 import pdb
 
                 pdb.set_trace()
-            sample = {"uid": blocks[0], "premise": blocks[8], "hypothesis": blocks[9], "label": lab}
+            sample = {
+                "uid": blocks[0],
+                "premise": blocks[8],
+                "hypothesis": blocks[9],
+                "label": lab,
+            }
             rows.append(sample)
             cnt += 1
     return rows
@@ -87,7 +97,12 @@ def load_mrpc(file, header=True, is_train=True):
             lab = 0
             if is_train:
                 lab = int(blocks[0])
-            sample = {"uid": cnt, "premise": blocks[-2], "hypothesis": blocks[-1], "label": lab}
+            sample = {
+                "uid": cnt,
+                "premise": blocks[-2],
+                "hypothesis": blocks[-1],
+                "label": lab,
+            }
             rows.append(sample)
             cnt += 1
     return rows
@@ -111,7 +126,12 @@ def load_qnli(file, header=True, is_train=True):
                 import pdb
 
                 pdb.set_trace()
-            sample = {"uid": blocks[0], "premise": blocks[1], "hypothesis": blocks[2], "label": lab}
+            sample = {
+                "uid": blocks[0],
+                "premise": blocks[1],
+                "hypothesis": blocks[2],
+                "label": lab,
+            }
             rows.append(sample)
             cnt += 1
     return rows
@@ -135,7 +155,12 @@ def load_qqp(file, header=True, is_train=True):
             lab = 0
             if is_train:
                 lab = int(blocks[-1])
-                sample = {"uid": cnt, "premise": blocks[-3], "hypothesis": blocks[-2], "label": lab}
+                sample = {
+                    "uid": cnt,
+                    "premise": blocks[-3],
+                    "hypothesis": blocks[-2],
+                    "label": lab,
+                }
             else:
                 sample = {
                     "uid": int(blocks[0]),
@@ -198,9 +223,19 @@ def load_wnli(file, header=True, is_train=True):
             lab = 0
             if is_train:
                 lab = int(blocks[-1])
-                sample = {"uid": cnt, "premise": blocks[-3], "hypothesis": blocks[-2], "label": lab}
+                sample = {
+                    "uid": cnt,
+                    "premise": blocks[-3],
+                    "hypothesis": blocks[-2],
+                    "label": lab,
+                }
             else:
-                sample = {"uid": cnt, "premise": blocks[-2], "hypothesis": blocks[-1], "label": lab}
+                sample = {
+                    "uid": cnt,
+                    "premise": blocks[-2],
+                    "hypothesis": blocks[-1],
+                    "label": lab,
+                }
             rows.append(sample)
             cnt += 1
     return rows

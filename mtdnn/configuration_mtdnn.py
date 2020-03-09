@@ -8,8 +8,8 @@
 import torch
 from transformers import BertConfig, PretrainedConfig
 
-from utils_nlp.models.mtdnn.common.types import EncoderModelType
-from utils_nlp.models.mtdnn.common.archive_maps import PRETRAINED_CONFIG_ARCHIVE_MAP
+from mtdnn.common.types import EncoderModelType
+from mtdnn.common.archive_maps import PRETRAINED_CONFIG_ARCHIVE_MAP
 
 """MTDNN model configuration"""
 

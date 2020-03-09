@@ -9,18 +9,18 @@ import torch
 from tensorboardX import SummaryWriter
 from torch.utils.data import BatchSampler, DataLoader, Dataset
 
-from utils_nlp.models.mtdnn.common.glue.glue_utils import submit
-from utils_nlp.models.mtdnn.common.types import TaskType
-from utils_nlp.models.mtdnn.common.utils import MTDNNCommonUtils
-from utils_nlp.models.mtdnn.configuration_mtdnn import MTDNNConfig
-from utils_nlp.models.mtdnn.dataset_mtdnn import (
+from mtdnn.common.glue.glue_utils import submit
+from mtdnn.common.types import TaskType
+from mtdnn.common.utils import MTDNNCommonUtils
+from mtdnn.configuration_mtdnn import MTDNNConfig
+from mtdnn.dataset_mtdnn import (
     MTDNNCollater,
     MTDNNMultiTaskBatchSampler,
     MTDNNMultiTaskDataset,
     MTDNNSingleTaskDataset,
 )
-from utils_nlp.models.mtdnn.modeling_mtdnn import MTDNNModel
-from utils_nlp.models.mtdnn.tasks.config import MTDNNTaskDefs
+from mtdnn.modeling_mtdnn import MTDNNModel
+from mtdnn.tasks.config import MTDNNTaskDefs
 
 logger = MTDNNCommonUtils.setup_logging(mode="w")
 
@@ -58,7 +58,10 @@ class MTDNNDataProcess:
         self.loss_types = []
         self.kd_loss_types = []
         self._multitask_train_dataloader = self._process_train_datasets()
-        self._dev_dataloaders_list, self._test_dataloaders_list = self._process_dev_test_datasets()
+        (
+            self._dev_dataloaders_list,
+            self._test_dataloaders_list,
+        ) = self._process_dev_test_datasets()
         self._num_all_batches = (
             self.config.epochs
             * len(self._multitask_train_dataloader)
@@ -121,7 +124,9 @@ class MTDNNDataProcess:
             self.dropout_list.append(dropout_p)
 
             train_path = os.path.join(self.data_dir, f"{dataset}_train.json")
-            assert os.path.exists(train_path), f"[ERROR] - Training dataset does not exist"
+            assert os.path.exists(
+                train_path
+            ), f"[ERROR] - Training dataset does not exist"
             logger.info(f"Loading {train_path} as task {task_id}")
             train_data_set = MTDNNSingleTaskDataset(
                 train_path,
@@ -137,7 +142,10 @@ class MTDNNDataProcess:
         )
         multitask_train_dataset = MTDNNMultiTaskDataset(train_datasets)
         multitask_batch_sampler = MTDNNMultiTaskBatchSampler(
-            train_datasets, self.config.batch_size, self.config.mix_opt, self.config.ratio
+            train_datasets,
+            self.config.batch_size,
+            self.config.mix_opt,
+            self.config.ratio,
         )
         multitask_train_data = DataLoader(
             multitask_train_dataset,
@@ -156,7 +164,9 @@ class MTDNNDataProcess:
         logger.info("Starting to process the testing data sets")
         dev_dataloaders_list = []
         test_dataloaders_list = []
-        test_collater = MTDNNCollater(is_train=False, encoder_type=self.config.encoder_type)
+        test_collater = MTDNNCollater(
+            is_train=False, encoder_type=self.config.encoder_type
+        )
         for dataset in self.test_datasets:
             prefix = dataset.split("_")[0]
             task_id = (
@@ -174,7 +184,9 @@ class MTDNNDataProcess:
             data_type = self.task_defs.data_type_map[prefix]
 
             dev_path = os.path.join(self.data_dir, f"{dataset}_dev.json")
-            assert os.path.exists(dev_path), f"[ERROR] - Dev dataset does not exist: {dev_path}"
+            assert os.path.exists(
+                dev_path
+            ), f"[ERROR] - Dev dataset does not exist: {dev_path}"
             dev_data = None
             if os.path.exists(dev_path):
                 dev_data_set = MTDNNSingleTaskDataset(
@@ -279,7 +291,9 @@ class MTDNNPipelineProcess:
         log_dir: str = "tensorboard_logdir",
     ):
         """Pipeline process for MTDNN Training, Inference and Fine Tuning"""
-        assert multitask_train_dataloader, "DataLoader for multiple tasks cannot be None"
+        assert (
+            multitask_train_dataloader
+        ), "DataLoader for multiple tasks cannot be None"
         assert test_datasets_list, "Pass a list of test dataset prefixes"
         self.model = model
         self.config = config
@@ -301,11 +315,15 @@ class MTDNNPipelineProcess:
         logger.info(f"Total number of params: {self.model.total_param}")
         for epoch in range(epochs):
             logger.info(f"At epoch {epoch}")
-            logger.info(f"Amount of data to go over: {len(self.multitask_train_dataloader)}")
+            logger.info(
+                f"Amount of data to go over: {len(self.multitask_train_dataloader)}"
+            )
 
             start = datetime.now()
             # Create batches and train
-            for idx, (batch_meta, batch_data) in enumerate(self.multitask_train_dataloader):
+            for idx, (batch_meta, batch_data) in enumerate(
+                self.multitask_train_dataloader
+            ):
                 batch_meta, batch_data = MTDNNCollater.patch_data(
                     self.config.cuda, batch_meta, batch_data
                 )
@@ -326,21 +344,30 @@ class MTDNNPipelineProcess:
                     ).split(".")[0]
                     logger.info(
                         "Task - [{0:2}] Updates - [{1:6}] Training Loss - [{2:.5f}] Time Remaining - [{3}]".format(
-                            task_id, self.model.updates, self.model.train_loss.avg, time_left
+                            task_id,
+                            self.model.updates,
+                            self.model.train_loss.avg,
+                            time_left,
                         )
                     )
                     if self.config.use_tensor_board:
                         self.tensor_board.add_scalar(
-                            "train/loss", self.model.train_loss.avg, global_step=self.model.updates
+                            "train/loss",
+                            self.model.train_loss.avg,
+                            global_step=self.model.updates,
                         )
 
                 if self.config.save_per_updates_on and (
                     (self.model.local_updates)
-                    % (self.config.save_per_updates * self.config.grad_accumulation_step)
+                    % (
+                        self.config.save_per_updates
+                        * self.config.grad_accumulation_step
+                    )
                     == 0
                 ):
                     model_file = os.path.join(
-                        self.output_dir, "model_{}_{}.pt".format(epoch, self.model.updates)
+                        self.output_dir,
+                        "model_{}_{}.pt".format(epoch, self.model.updates),
                     )
                     logger.info(f"Saving mt-dnn model to {model_file}")
                     self.model.save(model_file)
@@ -370,7 +397,13 @@ class MTDNNPipelineProcess:
             dev_data: DataLoader = self.dev_dataloaders_list[idx]
             if dev_data is not None:
                 with torch.no_grad():
-                    dev_metrics, dev_predictions, scores, golds, dev_ids = self.model.eval_mode(
+                    (
+                        dev_metrics,
+                        dev_predictions,
+                        scores,
+                        golds,
+                        dev_ids,
+                    ) = self.model.eval_mode(
                         dev_data,
                         metric_meta=self.task_defs.metric_meta_map[prefix],
                         use_cuda=self.config.cuda,
@@ -404,7 +437,8 @@ class MTDNNPipelineProcess:
                 MTDNNCommonUtils.dump(score_file, results)
                 if self.config.use_glue_format:
                     official_score_file = os.path.join(
-                        self.output_dir, "{}_dev_scores_{}.tsv".format(dataset, saved_epoch_idx)
+                        self.output_dir,
+                        "{}_dev_scores_{}.tsv".format(dataset, saved_epoch_idx),
                     )
                     submit(official_score_file, results, label_dict)
 

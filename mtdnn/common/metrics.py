@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from sklearn.metrics import roc_auc_score
 from scipy.stats import pearsonr, spearmanr
 from seqeval.metrics import classification_report
-from utils_nlp.models.mtdnn.common.squad_eval import evaluate_func
+from mtdnn.common.squad_eval import evaluate_func
 
 
 def compute_acc(predicts, labels):

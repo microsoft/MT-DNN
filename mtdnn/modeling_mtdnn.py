@@ -28,19 +28,19 @@ from transformers import (
 )
 
 from utils_nlp.dataset.url_utils import download_path, maybe_download
-from utils_nlp.models.mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
-from utils_nlp.models.mtdnn.common.average_meter import AverageMeter
-from utils_nlp.models.mtdnn.common.bert_optim import Adamax, RAdam
-from utils_nlp.models.mtdnn.common.linear_pooler import LinearPooler
-from utils_nlp.models.mtdnn.common.loss import LOSS_REGISTRY
-from utils_nlp.models.mtdnn.common.metrics import calc_metrics
-from utils_nlp.models.mtdnn.common.san import SANBERTNetwork, SANClassifier
-from utils_nlp.models.mtdnn.common.squad_utils import extract_answer, merge_answers, select_answers
-from utils_nlp.models.mtdnn.common.types import DataFormat, EncoderModelType, TaskType
-from utils_nlp.models.mtdnn.common.utils import MTDNNCommonUtils
-from utils_nlp.models.mtdnn.configuration_mtdnn import MTDNNConfig
-from utils_nlp.models.mtdnn.dataset_mtdnn import MTDNNCollater
-from utils_nlp.models.mtdnn.tasks.config import MTDNNTaskDefs
+from mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
+from mtdnn.common.average_meter import AverageMeter
+from mtdnn.common.bert_optim import Adamax, RAdam
+from mtdnn.common.linear_pooler import LinearPooler
+from mtdnn.common.loss import LOSS_REGISTRY
+from mtdnn.common.metrics import calc_metrics
+from mtdnn.common.san import SANBERTNetwork, SANClassifier
+from mtdnn.common.squad_utils import extract_answer, merge_answers, select_answers
+from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
+from mtdnn.common.utils import MTDNNCommonUtils
+from mtdnn.configuration_mtdnn import MTDNNConfig
+from mtdnn.dataset_mtdnn import MTDNNCollater
+from mtdnn.tasks.config import MTDNNTaskDefs
 
 logger = MTDNNCommonUtils.setup_logging()
 
@@ -112,13 +112,20 @@ class MTDNNModel(MTDNNPretrainedModel):
         # Initialize model config and update with training options
         self.config = config
         self.update_config_with_training_opts(
-            decoder_opts, task_types, dropout_list, loss_types, kd_loss_types, tasks_nclass_list
+            decoder_opts,
+            task_types,
+            dropout_list,
+            loss_types,
+            kd_loss_types,
+            tasks_nclass_list,
         )
         self.pooler = None
 
         # Resume from model checkpoint
         if self.config.resume and self.config.model_ckpt:
-            assert os.path.exists(self.config.model_ckpt), "Model checkpoint does not exist"
+            assert os.path.exists(
+                self.config.model_ckpt
+            ), "Model checkpoint does not exist"
             logger.info(f"loading model from {self.config.model_ckpt}")
             self = self.load(self.config.model_ckpt)
             return
@@ -145,14 +152,16 @@ class MTDNNModel(MTDNNPretrainedModel):
                 self.config.hidden_size = self.bert_config.hidden_size
             if config.encoder_type == EncoderModelType.ROBERTA:
                 # Download and extract from PyTorch hub if not downloaded before
-                self.bert_model = torch.hub.load("pytorch/fairseq", config.init_checkpoint)
+                self.bert_model = torch.hub.load(
+                    "pytorch/fairseq", config.init_checkpoint
+                )
                 self.config.hidden_size = self.bert_model.args.encoder_embed_dim
                 self.pooler = LinearPooler(self.config.hidden_size)
                 new_state_dict = {}
                 for key, val in self.bert_model.state_dict().items():
-                    if key.startswith("model.decoder.sentence_encoder") or key.startswith(
-                        "model.classification_heads"
-                    ):
+                    if key.startswith(
+                        "model.decoder.sentence_encoder"
+                    ) or key.startswith("model.classification_heads"):
                         key = f"bert.{key}"
                         new_state_dict[key] = val
                     # backward compatibility PyTorch <= 1.0.0
@@ -162,17 +171,25 @@ class MTDNNModel(MTDNNPretrainedModel):
                 self.state_dict = new_state_dict
 
         self.updates = (
-            self.state_dict["updates"] if self.state_dict and "updates" in self.state_dict else 0
+            self.state_dict["updates"]
+            if self.state_dict and "updates" in self.state_dict
+            else 0
         )
         self.local_updates = 0
         self.train_loss = AverageMeter()
         self.network = SANBERTNetwork(
-            init_checkpoint_model=self.bert_model, pooler=self.pooler, config=self.config
+            init_checkpoint_model=self.bert_model,
+            pooler=self.pooler,
+            config=self.config,
         )
         if self.state_dict:
             self.network.load_state_dict(self.state_dict, strict=False)
-        self.mnetwork = nn.DataParallel(self.network) if self.config.multi_gpu_on else self.network
-        self.total_param = sum([p.nelement() for p in self.network.parameters() if p.requires_grad])
+        self.mnetwork = (
+            nn.DataParallel(self.network) if self.config.multi_gpu_on else self.network
+        )
+        self.total_param = sum(
+            [p.nelement() for p in self.network.parameters() if p.requires_grad]
+        )
 
         # Move network to GPU if device available and flag set
         if self.config.cuda:
@@ -196,14 +213,18 @@ class MTDNNModel(MTDNNPretrainedModel):
             },
             {
                 "params": [
-                    p for n, p in self.network.named_parameters() if any(nd in n for nd in no_decay)
+                    p
+                    for n, p in self.network.named_parameters()
+                    if any(nd in n for nd in no_decay)
                 ],
                 "weight_decay": 0.0,
             },
         ]
         return optimizer_parameters
 
-    def _setup_optim(self, optimizer_parameters, state_dict: dict = None, num_train_step: int = -1):
+    def _setup_optim(
+        self, optimizer_parameters, state_dict: dict = None, num_train_step: int = -1
+    ):
 
         # Setup optimizer parameters
         if self.config.optimizer == "sgd":
@@ -280,10 +301,13 @@ class MTDNNModel(MTDNNPretrainedModel):
                     self.optimizer, mode="max", factor=self.config.lr_gamma, patience=3
                 )
             elif self.config.scheduler_type == "exp":
-                self.scheduler = ExponentialLR(self.optimizer, gamma=self.config.lr_gamma or 0.95)
+                self.scheduler = ExponentialLR(
+                    self.optimizer, gamma=self.config.lr_gamma or 0.95
+                )
             else:
                 milestones = [
-                    int(step) for step in (self.config.multi_step_lr or "10,20,30").split(",")
+                    int(step)
+                    for step in (self.config.multi_step_lr or "10,20,30").split(",")
                 ]
                 self.scheduler = MultiStepLR(
                     self.optimizer, milestones=milestones, gamma=self.config.lr_gamma
@@ -313,7 +337,10 @@ class MTDNNModel(MTDNNPretrainedModel):
             return tensor
 
         if isinstance(tensor, list) or isinstance(tensor, tuple):
-            y = [e.cuda(device=self.config.cuda_device, non_blocking=True) for e in tensor]
+            y = [
+                e.cuda(device=self.config.cuda_device, non_blocking=True)
+                for e in tensor
+            ]
             for t in y:
                 t.requires_grad = False
         else:
@@ -352,14 +379,20 @@ class MTDNNModel(MTDNNPretrainedModel):
         # compute loss
         loss = 0
         if self.task_loss_criterion[task_id] and (target is not None):
-            loss = self.task_loss_criterion[task_id](logits, target, weight, ignore_index=-1)
+            loss = self.task_loss_criterion[task_id](
+                logits, target, weight, ignore_index=-1
+            )
 
         # compute kd loss
         if self.config.mkd_opt > 0 and ("soft_label" in batch_meta):
             soft_labels = batch_meta["soft_label"]
-            soft_labels = self._to_cuda(soft_labels) if self.config.cuda else soft_labels
+            soft_labels = (
+                self._to_cuda(soft_labels) if self.config.cuda else soft_labels
+            )
             kd_lc = self.kd_task_loss_criterion[task_id]
-            kd_loss = kd_lc(logits, soft_labels, weight, ignore_index=-1) if kd_lc else 0
+            kd_loss = (
+                kd_lc(logits, soft_labels, weight, ignore_index=-1) if kd_lc else 0
+            )
             loss = loss + kd_loss
 
         self.train_loss.update(loss.item(), batch_data[batch_meta["token_id"]].size(0))
@@ -375,7 +408,8 @@ class MTDNNModel(MTDNNPretrainedModel):
             if self.config.global_grad_clipping > 0:
                 if self.config.fp16:
                     torch.nn.utils.clip_grad_norm_(
-                        amp.master_params(self.optimizer), self.config.global_grad_clipping
+                        amp.master_params(self.optimizer),
+                        self.config.global_grad_clipping,
                     )
                 else:
                     torch.nn.utils.clip_grad_norm_(
@@ -405,7 +439,9 @@ class MTDNNModel(MTDNNPretrainedModel):
         for idx, (batch_info, batch_data) in enumerate(data):
             if idx % 100 == 0:
                 print(f"predicting {idx}")
-            batch_info, batch_data = MTDNNCollater.patch_data(use_cuda, batch_info, batch_data)
+            batch_info, batch_data = MTDNNCollater.patch_data(
+                use_cuda, batch_info, batch_data
+            )
             score, pred, gold = self.predict(batch_info, batch_data)
             predictions.extend(pred)
             golds.extend(gold)
@@ -416,7 +452,9 @@ class MTDNNModel(MTDNNPretrainedModel):
             golds = merge_answers(ids, golds)
             predictions, scores = select_answers(ids, predictions, scores)
         if with_label:
-            metrics = calc_metrics(metric_meta, golds, predictions, scores, label_mapper)
+            metrics = calc_metrics(
+                metric_meta, golds, predictions, scores, label_mapper
+            )
         return metrics, predictions, scores, golds, ids
 
     def predict(self, batch_meta, batch_data):
@@ -459,7 +497,11 @@ class MTDNNModel(MTDNNPretrainedModel):
             predictions = []
             if self.config.encoder_type == EncoderModelType.BERT:
                 scores, predictions = extract_answer(
-                    batch_meta, batch_data, start, end, self.config.get("max_answer_len", 5)
+                    batch_meta,
+                    batch_data,
+                    start,
+                    end,
+                    self.config.get("max_answer_len", 5),
                 )
             return scores, predictions, batch_meta["answer"]
         else:
@@ -479,7 +521,9 @@ class MTDNNModel(MTDNNPretrainedModel):
         return all_encoder_layers, pooled_output
 
     def save(self, filename):
-        network_state = dict([(k, v.cpu()) for k, v in self.network.state_dict().items()])
+        network_state = dict(
+            [(k, v.cpu()) for k, v in self.network.state_dict().items()]
+        )
         params = {
             "state": network_state,
             "optimizer": self.optimizer.state_dict(),
@@ -511,7 +555,13 @@ class MTDNNModel(MTDNNPretrainedModel):
         ]
 
     def update_config_with_training_opts(
-        self, decoder_opts, task_types, dropout_list, loss_types, kd_loss_types, tasks_nclass_list
+        self,
+        decoder_opts,
+        task_types,
+        dropout_list,
+        loss_types,
+        kd_loss_types,
+        tasks_nclass_list,
     ):
         # Update configurations with options obtained from preprocessing training data
         setattr(self.config, "decoder_opts", decoder_opts)
