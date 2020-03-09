@@ -29,7 +29,7 @@ setup(
         re.compile("^.. start-badges.*^.. end-badges", re.M | re.S).sub(
             "", read("README.md")
         ),
-        re.sub(":[a-z]+:`~?(.*?)`", r"``\1``", read("CONTRIBUTING.md")),
+        re.sub(":[a-z]+:`~?(.*?)`", r"``\1``", read("CONTRIBUTION.md")),
     ),
     author=AUTHOR,
     author_email="xiaodl@microsoft.com",
