@@ -3,13 +3,16 @@
 
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+
 import io
+import os
 import re
 from os.path import dirname, join
+
 from setuptools import setup
-from mtdnn import VERSION, AUTHOR, TITLE, LICENSE
+
+from mtdnn import AUTHOR, LICENSE, TITLE, VERSION
 
 
 def read(*names, **kwargs):
@@ -17,7 +20,6 @@ def read(*names, **kwargs):
         join(dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")
     ) as fh:
         return fh.read()
-
 
 setup(
     name="mtdnn",
@@ -91,11 +93,8 @@ setup(
         "fairseq==0.8.0",
         "seqeval==0.0.12",
         "transformers==2.3.0",
-        "utils_nlp",
     ],
-    dependency_links=[
-        "git+git@github.com:microsoft/nlp-recipes.git@master#egg=utils_nlp-0"
-    ],
+    dependency_links=[],
     extras_require={},
     use_scm_version=False,
     setup_requires=[],
