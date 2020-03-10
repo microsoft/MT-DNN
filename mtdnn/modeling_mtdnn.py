@@ -18,16 +18,9 @@ from fairseq.models.roberta import RobertaModel as FairseqRobertModel
 from torch import nn
 from torch.optim.lr_scheduler import *
 from torch.utils.data import DataLoader
-from transformers import (
-    BertConfig,
-    BertModel,
-    BertPreTrainedModel,
-    PretrainedConfig,
-    PreTrainedModel,
-    RobertaModel,
-)
+from transformers import (BertConfig, BertModel, BertPreTrainedModel,
+                          PretrainedConfig, PreTrainedModel, RobertaModel)
 
-from utils_nlp.dataset.url_utils import download_path, maybe_download
 from mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
 from mtdnn.common.average_meter import AverageMeter
 from mtdnn.common.bert_optim import Adamax, RAdam
@@ -35,7 +28,8 @@ from mtdnn.common.linear_pooler import LinearPooler
 from mtdnn.common.loss import LOSS_REGISTRY
 from mtdnn.common.metrics import calc_metrics
 from mtdnn.common.san import SANBERTNetwork, SANClassifier
-from mtdnn.common.squad_utils import extract_answer, merge_answers, select_answers
+from mtdnn.common.squad_utils import (extract_answer, merge_answers,
+                                      select_answers)
 from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
@@ -136,9 +130,9 @@ class MTDNNModel(MTDNNPretrainedModel):
         # - Download pretrained model if flag is set
         # TODO - Use Model.pretrained_model() after configuration file is hosted.
         if self.config.use_pretrained_model:
-            with download_path() as file_path:
+            with MTDNNCommonUtils.download_path() as file_path:
                 path = pathlib.Path(file_path)
-                self.local_model_path = maybe_download(
+                self.local_model_path = MTDNNCommonUtils.maybe_download(
                     url=self.pretrained_model_archive_map[pretrained_model_name]
                 )
             self.bert_model = MTDNNCommonUtils.load_pytorch_model(self.local_model_path)

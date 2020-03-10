@@ -1,12 +1,20 @@
 # coding=utf-8
 # Copyright (c) Microsoft. All rights reserved.
+# Some code referenced from https://github.com/microsoft/nlp-recipes
 import json
 import logging
+import math
 import os
 import subprocess
+import tarfile
+import zipfile
+from contextlib import contextmanager
 from logging import Logger
+from tempfile import TemporaryDirectory
 
+import requests
 import torch
+from tqdm import tqdm
 
 
 class MTDNNCommonUtils:
@@ -76,3 +84,56 @@ class MTDNNCommonUtils:
     @staticmethod
     def create_directory_if_not_exists(dir_path: str):
         os.makedirs(dir_path, exist_ok=True)
+    
+    @staticmethod
+    @contextmanager
+    def download_path(path=None):
+        tmp_dir = TemporaryDirectory()
+        if not path:
+            path = tmp_dir.name
+        else:
+            path = os.path.realpath(path)
+
+        try:
+            yield path
+        finally:
+            tmp_dir.cleanup()
+    
+    @staticmethod
+    def maybe_download(url, filename=None, work_directory=".", expected_bytes=None):
+        """Download a file if it is not already downloaded.
+
+        Args:
+            filename (str): File name.
+            work_directory (str): Working directory.
+            url (str): URL of the file to download.
+            expected_bytes (int): Expected file size in bytes.
+        Returns:
+            str: File path of the file downloaded.
+        """
+        if filename is None:
+            filename = url.split("/")[-1]
+        os.makedirs(work_directory, exist_ok=True)
+        filepath = os.path.join(work_directory, filename)
+        if not os.path.exists(filepath):
+            if not os.path.isdir(work_directory):
+                os.makedirs(work_directory)
+            r = requests.get(url, stream=True)
+            total_size = int(r.headers.get("content-length", 0))
+            block_size = 1024
+            num_iterables = math.ceil(total_size / block_size)
+
+            with open(filepath, "wb") as file:
+                for data in tqdm(
+                    r.iter_content(block_size), total=num_iterables, unit="KB", unit_scale=True
+                ):
+                    file.write(data)
+        else:
+            log.debug("File {} already downloaded".format(filepath))
+        if expected_bytes is not None:
+            statinfo = os.stat(filepath)
+            if statinfo.st_size != expected_bytes:
+                os.remove(filepath)
+                raise IOError("Failed to verify {}".format(filepath))
+
+        return filepath
