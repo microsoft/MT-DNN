@@ -3,7 +3,7 @@
 # This script is used to download resources for MT-DNN experiments
 ############################################################## 
 
-BERT_DIR=$(pwd)/mt_dnn_models
+BERT_DIR=$(pwd)/../mt_dnn_models
 if [ ! -d ${BERT_DIR}  ]; then
   echo "Create a folder BERT_DIR"
   mkdir ${BERT_DIR}
