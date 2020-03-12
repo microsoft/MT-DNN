@@ -26,13 +26,124 @@ SMART: Robust and Efficient Fine-Tuning for Pre-trained Natural Language Models 
 [arXiv version](https://arxiv.org/abs/1911.03437) <br/>
 
 
+## How To Use
+1. Create a model configuration object, `MTDNNConfig`, with the necessary parameters to initialize the MT-DNN model. Initialization without any parameters will default to a similar configuration that initializes a BERT model. 
+
+    ```Python
+    config = MTDNNConfig()
+    ```
+
+1. Define the task parameters to train for and initialize an `MTDNNTaskDefs` object.  
+
+    ```Python
+        tasks_params = {
+                        "mnli": {
+                            "data_format": "PremiseAndOneHypothesis",
+                            "encoder_type": "BERT",
+                            "dropout_p": 0.3,
+                            "enable_san": True,
+                            "labels": ["contradiction", "neutral", "entailment"],
+                            "metric_meta": ["ACC"],
+                            "loss": "CeCriterion",
+                            "kd_loss": "MseCriterion",
+                            "n_class": 3,
+                            "split_names": [
+                                "train",
+                                "matched_dev",
+                                "mismatched_dev",
+                                "matched_test",
+                                "mismatched_test",
+                            ],
+                            "task_type": "Classification",
+                        },
+                    }
+        task_defs = MTDNNTaskDefs(tasks_params)
+    ```
+
+1. Create a data preprocessing object, `MTDNNDataProcess`. This creates the training, test and development PyTorch dataloaders needed for training and testing. We also need to retrieve the necessary training options required to initialize the model correctly, for all tasks.  
+
+    ```Python
+        data_processor = MTDNNDataProcess(
+            config=config,
+            task_defs=task_defs,
+            batch_size=16,
+            data_dir="/home/useradmin/sources/mt-dnn/data/canonical_data/bert_uncased_lower",
+            train_datasets_list=["mnli"],
+            test_datasets_list=["mnli_mismatched", "mnli_matched"],
+        )
+
+        # Retrieve the multi task train, dev and test dataloaders
+        multitask_train_dataloader = data_processor.get_train_dataloader()
+        dev_dataloaders_list = data_processor.get_dev_dataloaders()
+        test_dataloaders_list = data_processor.get_test_dataloaders()
+
+        # Get training options to initialize model
+        decoder_opts = data_processor.get_decoder_options_list()
+        task_types = data_processor.get_task_types_list()
+        dropout_list = data_processor.get_tasks_dropout_prob_list()
+        loss_types = data_processor.get_loss_types_list()
+        kd_loss_types = data_processor.get_kd_loss_types_list()
+        tasks_nclass_list = data_processor.get_task_nclass_list()
+        num_all_batches = data_processor.get_num_all_batches()
+    ```
+
+1. Now we can create an `MTDNNModel`. 
+    ```Python
+        model = MTDNNModel(
+            config,
+            pretrained_model_name="bert-base-uncased",
+            num_train_step=num_all_batches,
+            decoder_opts=decoder_opts,
+            task_types=task_types,
+            dropout_list=dropout_list,
+            loss_types=loss_types,
+            kd_loss_types=kd_loss_types,
+            tasks_nclass_list=tasks_nclass_list,
+        )
+    ```
+1. At this point, we can create an MT-DNN Pipeline processor that allows us to fit to the model and create predictions.  
+
+    ```Python
+        # Create a process pipeline for training and inference
+        pipeline_process = MTDNNPipelineProcess(
+            model=model,
+            config=config,
+            task_defs=task_defs,
+            multitask_train_dataloader=multitask_train_dataloader,
+            dev_dataloaders_list=dev_dataloaders_list,
+            test_dataloaders_list=test_dataloaders_list,
+        )
+        pipeline_process.fit()
+        pipeline_process.predict()
+
+    ```
+
+
+1. The predict function can take an optional checkpoint, `trained_model_chckpt`, that can be used for creating evaluations instead of the trained model. Optionally using a previously trained model as checkpoint.  
+
+    ```Python
+            # Create a process pipeline for training and inference
+            pipeline_process = MTDNNPipelineProcess(
+                model=model,
+                config=config,
+                task_defs=task_defs,
+                multitask_train_dataloader=multitask_train_dataloader,
+                dev_dataloaders_list=dev_dataloaders_list,
+                test_dataloaders_list=test_dataloaders_list,
+            )
+            # Predict using a PyTorch model checkpoint
+            checkpt = "./model_0.pt"
+            pipeline_process.predict(trained_model_chckpt=checkpt)
+
+    ```
+
 ## FAQ
 
 ### Did you share the pretrained mt-dnn models?
 Yes, we released the pretrained shared embedings via MTL which are aligned to BERT base/large models: ```mt_dnn_base.pt``` and ```mt_dnn_large.pt```. </br>
-To obtain the similar models:
-1. run the ```>sh scripts\run_mt_dnn.sh```, and then pick the best checkpoint based on the average dev preformance of MNLI/RTE. </br>
-2. strip the task-specific layers via ```scritps\strip_model.py```. </br>
+
+### How can we obtain the data and pre-trained models to test to try out?
+Yes, we have provided a [download script](./scripts/download.sh) to assist with this.  
 
 ### Why SciTail/SNLI do not enable SAN?
 For SciTail/SNLI tasks, the purpose is to test generalization of the learned embedding and how easy it is adapted to a new domain instead of complicated model structures for a direct comparison with BERT. Thus, we use a linear projection on the all **domain adaptation** settings.
