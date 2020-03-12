@@ -11,6 +11,11 @@
 .vscode
 .idea 
 
+# MT-DNN downloaded data and egg files
+data/
+mt_dnn_models/
+*.egg-info
+
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
