@@ -137,6 +137,18 @@ SMART: Robust and Efficient Fine-Tuning for Pre-trained Natural Language Models 
 
     ```
 
+## Pre-process your data in the correct format  
+Depending on what `data_format` you have set in the configuration object `MTDNNConfig`, please follow the detailed data format below to prepare your data:
+
+- `PremiseOnly` : single text, i.e. premise. Data format is "id" \t "label" \t "premise" .  
+
+- `PremiseAndOneHypothesis` : two texts, i.e. one premise and one hypothesis. Data format is "id" \t "label" \t "premise" \t "hypothesis".  
+
+- `PremiseAndMultiHypothesis` : one text as premise and multiple candidates of texts as hypothesis. Data format is "id" \t "label" \t "premise" \t "hypothesis_1" \t "hypothesis_2" \t ... \t "hypothesis_n".  
+
+- `Sequence` : sequence tagging. Data format is "id" \t "label" \t "premise".
+
+
 ## FAQ
 
 ### Did you share the pretrained mt-dnn models?
