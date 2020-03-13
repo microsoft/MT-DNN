@@ -9,12 +9,14 @@ import logging
 import os
 import pathlib
 import sys
+from datetime import datetime
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from fairseq.models.roberta import RobertaModel as FairseqRobertModel
+from tensorboardX import SummaryWriter
 from torch import nn
 from torch.optim.lr_scheduler import *
 from torch.utils.data import DataLoader
@@ -79,6 +81,7 @@ class MTDNNModel(MTDNNPretrainedModel):
     def __init__(
         self,
         config: MTDNNConfig,
+        task_defs: MTDNNTaskDefs,
         pretrained_model_name: str = "mtdnn-base-uncased",
         num_train_step: int = -1,
         decoder_opts: list = None,
@@ -87,6 +90,12 @@ class MTDNNModel(MTDNNPretrainedModel):
         loss_types: list = None,
         kd_loss_types: list = None,
         tasks_nclass_list: list = None,
+        multitask_train_dataloader: DataLoader = None,
+        dev_dataloaders_list: list = None,  # list of dataloaders
+        test_dataloaders_list: list = None,  # list of dataloaders
+        test_datasets_list: list = ["mnli_mismatched", "mnli_matched"],
+        output_dir: str = "checkpoint",
+        log_dir: str = "tensorboard_logdir",
     ):
 
         # Input validation
@@ -100,6 +109,10 @@ class MTDNNModel(MTDNNPretrainedModel):
         assert loss_types, "Loss types list is required!"
         assert kd_loss_types, "KD Loss types list is required!"
         assert tasks_nclass_list, "Tasks nclass list is required!"
+        assert (
+            multitask_train_dataloader
+        ), "DataLoader for multiple tasks cannot be None"
+        assert test_datasets_list, "Pass a list of test dataset prefixes"
 
         super(MTDNNModel, self).__init__(config)
 
@@ -113,6 +126,18 @@ class MTDNNModel(MTDNNPretrainedModel):
             kd_loss_types,
             tasks_nclass_list,
         )
+        self.task_defs = task_defs
+        self.multitask_train_dataloader = multitask_train_dataloader
+        self.dev_dataloaders_list = dev_dataloaders_list
+        self.test_dataloaders_list = test_dataloaders_list
+        self.test_datasets_list = test_datasets_list
+        self.output_dir = output_dir
+        self.log_dir = log_dir
+
+        # Create the output_dir if it's doesn't exist
+        MTDNNCommonUtils.create_directory_if_not_exists(self.output_dir)
+        self.tensor_board = SummaryWriter(log_dir=self.log_dir)
+        
         self.pooler = None
 
         # Resume from model checkpoint
@@ -432,11 +457,11 @@ class MTDNNModel(MTDNNPretrainedModel):
         metrics = {}
         for idx, (batch_info, batch_data) in enumerate(data):
             if idx % 100 == 0:
-                print(f"predicting {idx}")
+                logger.info(f"predicting {idx}")
             batch_info, batch_data = MTDNNCollater.patch_data(
                 use_cuda, batch_info, batch_data
             )
-            score, pred, gold = self.predict(batch_info, batch_data)
+            score, pred, gold = self._predict_batch(batch_info, batch_data)
             predictions.extend(pred)
             golds.extend(gold)
             scores.extend(score)
@@ -451,7 +476,7 @@ class MTDNNModel(MTDNNPretrainedModel):
             )
         return metrics, predictions, scores, golds, ids
 
-    def predict(self, batch_meta, batch_data):
+    def _predict_batch(self, batch_meta, batch_data):
         self.network.eval()
         task_id = batch_meta["task_id"]
         task_type = batch_meta["task_type"]
@@ -506,6 +531,182 @@ class MTDNNModel(MTDNNPretrainedModel):
             predict = np.argmax(score, axis=1).tolist()
             score = score.reshape(-1).tolist()
         return score, predict, batch_meta["label"]
+
+    def fit(self, epochs=0):
+        """ Fit model to training datasets """
+        epochs = epochs or self.config.epochs
+        logger.info(f"Total number of params: {self.model.total_param}")
+        for epoch in range(epochs):
+            logger.info(f"At epoch {epoch}")
+            logger.info(
+                f"Amount of data to go over: {len(self.multitask_train_dataloader)}"
+            )
+
+            start = datetime.now()
+            # Create batches and train
+            for idx, (batch_meta, batch_data) in enumerate(
+                self.multitask_train_dataloader
+            ):
+                batch_meta, batch_data = MTDNNCollater.patch_data(
+                    self.config.cuda, batch_meta, batch_data
+                )
+
+                task_id = batch_meta["task_id"]
+                self.model.update(batch_meta, batch_data)
+                if (
+                    self.model.local_updates == 1
+                    or (self.model.local_updates)
+                    % (self.config.log_per_updates * self.config.grad_accumulation_step)
+                    == 0
+                ):
+
+                    time_left = str(
+                        (datetime.now() - start)
+                        / (idx + 1)
+                        * (len(self.multitask_train_dataloader) - idx - 1)
+                    ).split(".")[0]
+                    logger.info(
+                        "Task - [{0:2}] Updates - [{1:6}] Training Loss - [{2:.5f}] Time Remaining - [{3}]".format(
+                            task_id,
+                            self.model.updates,
+                            self.model.train_loss.avg,
+                            time_left,
+                        )
+                    )
+                    if self.config.use_tensor_board:
+                        self.tensor_board.add_scalar(
+                            "train/loss",
+                            self.model.train_loss.avg,
+                            global_step=self.model.updates,
+                        )
+
+                if self.config.save_per_updates_on and (
+                    (self.model.local_updates)
+                    % (
+                        self.config.save_per_updates
+                        * self.config.grad_accumulation_step
+                    )
+                    == 0
+                ):
+                    model_file = os.path.join(
+                        self.output_dir,
+                        "model_{}_{}.pt".format(epoch, self.model.updates),
+                    )
+                    logger.info(f"Saving mt-dnn model to {model_file}")
+                    self.model.save(model_file)
+
+            # TODO: Alternatively, we need to refactor save function
+            # and move into prediction
+            # Saving each checkpoint after model training
+            model_file = os.path.join(self.output_dir, "model_{}.pt".format(epoch))
+            logger.info(f"Saving mt-dnn model to {model_file}")
+            self.model.save(model_file)
+
+    def predict(self, trained_model_chckpt: str = None, saved_epoch_idx: int = 0):
+        """ 
+        Inference of model on test datasets
+        """
+
+        # Load a trained checkpoint if a valid model checkpoint
+        if trained_model_chckpt and os.path.exists(trained_model_chckpt):
+            logger.info(f"Running predictions using: {trained_model_chckpt}")
+            self.load(trained_model_chckpt)
+
+        # Create batches and train
+        start = datetime.now()
+        for idx, dataset in enumerate(self.test_datasets_list):
+            prefix = dataset.split("_")[0]
+            label_dict = self.task_defs.global_map.get(prefix, None)
+            dev_data: DataLoader = self.dev_dataloaders_list[idx]
+            if dev_data is not None:
+                with torch.no_grad():
+                    (
+                        dev_metrics,
+                        dev_predictions,
+                        scores,
+                        golds,
+                        dev_ids,
+                    ) = self.eval_mode(
+                        dev_data,
+                        metric_meta=self.task_defs.metric_meta_map[prefix],
+                        use_cuda=self.config.cuda,
+                        label_mapper=label_dict,
+                        task_type=self.task_defs.task_type_map[prefix],
+                    )
+                for key, val in dev_metrics.items():
+                    if self.config.use_tensor_board:
+                        self.tensor_board.add_scalar(
+                            f"dev/{dataset}/{key}", val, global_step=saved_epoch_idx
+                        )
+                    if isinstance(val, str):
+                        logger.info(
+                            f"Task {dataset} -- epoch {saved_epoch_idx} -- Dev {key}:\n {val}"
+                        )
+                    else:
+                        logger.info(
+                            f"Task {dataset} -- epoch {saved_epoch_idx} -- Dev {key}: {val:.3f}"
+                        )
+                score_file = os.path.join(
+                    self.output_dir, f"{dataset}_dev_scores_{saved_epoch_idx}.json"
+                )
+                results = {
+                    "metrics": dev_metrics,
+                    "predictions": dev_predictions,
+                    "uids": dev_ids,
+                    "scores": scores,
+                }
+
+                # Save results to file
+                MTDNNCommonUtils.dump(score_file, results)
+                if self.config.use_glue_format:
+                    official_score_file = os.path.join(
+                        self.output_dir,
+                        "{}_dev_scores_{}.tsv".format(dataset, saved_epoch_idx),
+                    )
+                    submit(official_score_file, results, label_dict)
+
+            # test eval
+            test_data: DataLoader = self.test_dataloaders_list[idx]
+            if test_data is not None:
+                with torch.no_grad():
+                    (
+                        test_metrics,
+                        test_predictions,
+                        scores,
+                        golds,
+                        test_ids,
+                    ) = self.eval_mode(
+                        test_data,
+                        metric_meta=self.task_defs.metric_meta_map[prefix],
+                        use_cuda=self.config.cuda,
+                        with_label=False,
+                        label_mapper=label_dict,
+                        task_type=self.task_defs.task_type_map[prefix],
+                    )
+                score_file = os.path.join(
+                    self.output_dir, f"{dataset}_test_scores_{saved_epoch_idx}.json"
+                )
+                results = {
+                    "metrics": test_metrics,
+                    "predictions": test_predictions,
+                    "uids": test_ids,
+                    "scores": scores,
+                }
+                MTDNNCommonUtils.dump(score_file, results)
+                if self.config.use_glue_format:
+                    official_score_file = os.path.join(
+                        self.output_dir, f"{dataset}_test_scores_{saved_epoch_idx}.tsv"
+                    )
+                    submit(official_score_file, results, label_dict)
+                logger.info("[new test scores saved.]")
+
+        # Close tensorboard connection if opened
+        self.close_connections()
+
+    def close_connections(self):
+        # Close tensor board connection
+        if self.config.use_tensor_board:
+            self.tensor_board.close()
 
     def extract(self, batch_meta, batch_data):
         self.network.eval()
