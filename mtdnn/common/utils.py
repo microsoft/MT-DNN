@@ -67,10 +67,14 @@ class MTDNNCommonUtils:
         return opt_v
 
     @staticmethod
-    def setup_logging(filename="run.log", mode="a") -> Logger:
+    def setup_logging(filename="run.log", mode="w") -> Logger:
         logger = logging.getLogger(__name__)
-        log_file_handler = logging.FileHandler(filename="run.log", mode="a")
-        log_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        log_file_handler = logging.FileHandler(
+            filename="run.log", mode=mode, encoding="utf-8"
+        )
+        log_formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         log_file_handler.setFormatter(log_formatter)
         do_add_handler = True
         for handler in logger.handlers:
@@ -84,7 +88,7 @@ class MTDNNCommonUtils:
     @staticmethod
     def create_directory_if_not_exists(dir_path: str):
         os.makedirs(dir_path, exist_ok=True)
-    
+
     @staticmethod
     @contextmanager
     def download_path(path=None):
@@ -98,7 +102,7 @@ class MTDNNCommonUtils:
             yield path
         finally:
             tmp_dir.cleanup()
-    
+
     @staticmethod
     def maybe_download(url, filename=None, work_directory=".", expected_bytes=None):
         """Download a file if it is not already downloaded.
@@ -125,7 +129,10 @@ class MTDNNCommonUtils:
 
             with open(filepath, "wb") as file:
                 for data in tqdm(
-                    r.iter_content(block_size), total=num_iterables, unit="KB", unit_scale=True
+                    r.iter_content(block_size),
+                    total=num_iterables,
+                    unit="KB",
+                    unit_scale=True,
                 ):
                     file.write(data)
         else:
