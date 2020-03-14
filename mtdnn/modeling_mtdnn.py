@@ -20,8 +20,14 @@ from tensorboardX import SummaryWriter
 from torch import nn
 from torch.optim.lr_scheduler import *
 from torch.utils.data import DataLoader
-from transformers import (BertConfig, BertModel, BertPreTrainedModel,
-                          PretrainedConfig, PreTrainedModel, RobertaModel)
+from transformers import (
+    BertConfig,
+    BertModel,
+    BertPreTrainedModel,
+    PretrainedConfig,
+    PreTrainedModel,
+    RobertaModel,
+)
 
 from mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
 from mtdnn.common.average_meter import AverageMeter
@@ -30,8 +36,7 @@ from mtdnn.common.linear_pooler import LinearPooler
 from mtdnn.common.loss import LOSS_REGISTRY
 from mtdnn.common.metrics import calc_metrics
 from mtdnn.common.san import SANBERTNetwork, SANClassifier
-from mtdnn.common.squad_utils import (extract_answer, merge_answers,
-                                      select_answers)
+from mtdnn.common.squad_utils import extract_answer, merge_answers, select_answers
 from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
@@ -137,7 +142,7 @@ class MTDNNModel(MTDNNPretrainedModel):
         # Create the output_dir if it's doesn't exist
         MTDNNCommonUtils.create_directory_if_not_exists(self.output_dir)
         self.tensor_board = SummaryWriter(log_dir=self.log_dir)
-        
+
         self.pooler = None
 
         # Resume from model checkpoint
@@ -535,7 +540,7 @@ class MTDNNModel(MTDNNPretrainedModel):
     def fit(self, epochs=0):
         """ Fit model to training datasets """
         epochs = epochs or self.config.epochs
-        logger.info(f"Total number of params: {self.model.total_param}")
+        logger.info(f"Total number of params: {self.total_param}")
         for epoch in range(epochs):
             logger.info(f"At epoch {epoch}")
             logger.info(
@@ -552,10 +557,10 @@ class MTDNNModel(MTDNNPretrainedModel):
                 )
 
                 task_id = batch_meta["task_id"]
-                self.model.update(batch_meta, batch_data)
+                self.update(batch_meta, batch_data)
                 if (
-                    self.model.local_updates == 1
-                    or (self.model.local_updates)
+                    self.local_updates == 1
+                    or (self.local_updates)
                     % (self.config.log_per_updates * self.config.grad_accumulation_step)
                     == 0
                 ):
@@ -567,21 +572,16 @@ class MTDNNModel(MTDNNPretrainedModel):
                     ).split(".")[0]
                     logger.info(
                         "Task - [{0:2}] Updates - [{1:6}] Training Loss - [{2:.5f}] Time Remaining - [{3}]".format(
-                            task_id,
-                            self.model.updates,
-                            self.model.train_loss.avg,
-                            time_left,
+                            task_id, self.updates, self.train_loss.avg, time_left,
                         )
                     )
                     if self.config.use_tensor_board:
                         self.tensor_board.add_scalar(
-                            "train/loss",
-                            self.model.train_loss.avg,
-                            global_step=self.model.updates,
+                            "train/loss", self.train_loss.avg, global_step=self.updates,
                         )
 
                 if self.config.save_per_updates_on and (
-                    (self.model.local_updates)
+                    (self.local_updates)
                     % (
                         self.config.save_per_updates
                         * self.config.grad_accumulation_step
@@ -589,18 +589,17 @@ class MTDNNModel(MTDNNPretrainedModel):
                     == 0
                 ):
                     model_file = os.path.join(
-                        self.output_dir,
-                        "model_{}_{}.pt".format(epoch, self.model.updates),
+                        self.output_dir, "model_{}_{}.pt".format(epoch, self.updates),
                     )
                     logger.info(f"Saving mt-dnn model to {model_file}")
-                    self.model.save(model_file)
+                    self.save(model_file)
 
             # TODO: Alternatively, we need to refactor save function
             # and move into prediction
             # Saving each checkpoint after model training
             model_file = os.path.join(self.output_dir, "model_{}.pt".format(epoch))
             logger.info(f"Saving mt-dnn model to {model_file}")
-            self.model.save(model_file)
+            self.save(model_file)
 
     def predict(self, trained_model_chckpt: str = None, saved_epoch_idx: int = 0):
         """ 
