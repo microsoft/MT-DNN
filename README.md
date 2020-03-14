@@ -89,51 +89,37 @@ SMART: Robust and Efficient Fine-Tuning for Pre-trained Natural Language Models 
 
 1. Now we can create an `MTDNNModel`. 
     ```Python
-        model = MTDNNModel(
-            config,
-            pretrained_model_name="bert-base-uncased",
-            num_train_step=num_all_batches,
-            decoder_opts=decoder_opts,
-            task_types=task_types,
-            dropout_list=dropout_list,
-            loss_types=loss_types,
-            kd_loss_types=kd_loss_types,
-            tasks_nclass_list=tasks_nclass_list,
-        )
+    model = MTDNNModel(
+        config,
+        task_defs,
+        pretrained_model_name="bert-base-uncased",
+        num_train_step=num_all_batches,
+        decoder_opts=decoder_opts,
+        task_types=task_types,
+        dropout_list=dropout_list,
+        loss_types=loss_types,
+        kd_loss_types=kd_loss_types,
+        tasks_nclass_list=tasks_nclass_list,
+        multitask_train_dataloader=multitask_train_dataloader,
+        dev_dataloaders_list=dev_dataloaders_list,
+        test_dataloaders_list=test_dataloaders_list,
+    )
     ```
-1. At this point, we can create an MT-DNN Pipeline processor that allows us to fit to the model and create predictions.  
+1. At this point the MT-DNN model allows us to fit to the model and create predictions. The fit takes an optional `epochs` parameter that overwrites the epochs set in the `MTDNNConfig` object. 
 
     ```Python
-        # Create a process pipeline for training and inference
-        pipeline_process = MTDNNPipelineProcess(
-            model=model,
-            config=config,
-            task_defs=task_defs,
-            multitask_train_dataloader=multitask_train_dataloader,
-            dev_dataloaders_list=dev_dataloaders_list,
-            test_dataloaders_list=test_dataloaders_list,
-        )
-        pipeline_process.fit()
-        pipeline_process.predict()
-
+    model.fit()
+    model.predict()
     ```
 
 
-1. The predict function can take an optional checkpoint, `trained_model_chckpt`, that can be used for creating evaluations instead of the trained model. Optionally using a previously trained model as checkpoint.  
+1. The predict function can take an optional checkpoint, `trained_model_chckpt`. This can be used for inference and running evaluations on an already trained PyTorch MT-DNN model.  
+Optionally using a previously trained model as checkpoint.  
 
     ```Python
-            # Create a process pipeline for training and inference
-            pipeline_process = MTDNNPipelineProcess(
-                model=model,
-                config=config,
-                task_defs=task_defs,
-                multitask_train_dataloader=multitask_train_dataloader,
-                dev_dataloaders_list=dev_dataloaders_list,
-                test_dataloaders_list=test_dataloaders_list,
-            )
-            # Predict using a PyTorch model checkpoint
-            checkpt = "./model_0.pt"
-            pipeline_process.predict(trained_model_chckpt=checkpt)
+    # Predict using a PyTorch model checkpoint
+    checkpt = "./model_0.pt"
+    model.predict(trained_model_chckpt=checkpt)
 
     ```
 
