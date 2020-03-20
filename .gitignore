@@ -11,10 +11,14 @@
 .vscode
 .idea 
 
+
 # MT-DNN downloaded data and egg files
 data/
 mt_dnn_models/
+checkpoint/
+tensorboard_logdir/ 
 *.egg-info
+
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
