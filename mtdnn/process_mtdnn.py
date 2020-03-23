@@ -30,7 +30,6 @@ class MTDNNDataProcess:
         self,
         config: MTDNNConfig,
         task_defs: MTDNNTaskDefs,
-        batch_size: int,
         data_dir: str,
         train_datasets_list: list = ["mnli"],
         test_datasets_list: list = ["mnli_mismatched,mnli_matched"],
@@ -48,7 +47,6 @@ class MTDNNDataProcess:
         self.data_dir = data_dir
         self.glue_format = glue_format
         self.data_sort = data_sort
-        self.batch_size = batch_size
         self.tasks = {}
         self.tasks_class = {}
         self.nclass_list = []
