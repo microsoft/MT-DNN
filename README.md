@@ -50,10 +50,11 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
     ```  
 
 ## How To Use
-1. Create a model configuration object, `MTDNNConfig`, with the necessary parameters to initialize the MT-DNN model. Initialization without any parameters will default to a similar configuration that initializes a BERT model. 
+1. Create a model configuration object, `MTDNNConfig`, with the necessary parameters to initialize the MT-DNN model. Initialization without any parameters will default to a similar configuration that initializes a BERT model. This configuration object can be initialized wit training and learning parameters like `batch_size` and `learning_rate`. Please consult the class implementation for all parameters.   
 
     ```Python
-    config = MTDNNConfig()
+    BATCH_SIZE = 16
+    config = MTDNNConfig(batch_size=BATCH_SIZE)
     ```
 
 1. Define the task parameters to train for and initialize an `MTDNNTaskDefs` object.  
@@ -89,7 +90,6 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
     data_processor = MTDNNDataProcess(
         config=config,
         task_defs=task_defs,
-        batch_size=16,
         data_dir="/home/useradmin/sources/mt-dnn/data/canonical_data/bert_uncased_lower",
         train_datasets_list=["mnli"],
         test_datasets_list=["mnli_mismatched", "mnli_matched"],
