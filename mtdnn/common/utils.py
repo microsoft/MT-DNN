@@ -70,7 +70,7 @@ class MTDNNCommonUtils:
     def setup_logging(filename="run.log", mode="w") -> Logger:
         logger = logging.getLogger(__name__)
         log_file_handler = logging.FileHandler(
-            filename="run.log", mode=mode, encoding="utf-8"
+            filename=filename, mode=mode, encoding="utf-8"
         )
         log_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

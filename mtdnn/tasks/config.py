@@ -576,47 +576,6 @@ class MTDNNTaskConfig:
         """
         return self.supported_tasks_map.keys()
 
-    # TODO - Cleanup
-    # def get_configured_task(self) -> TaskConfig:
-    #     """Get a Task Configuration
-
-    #     Returns:
-    #         TaskConfig -- TaskConfig Object to be configured
-    #     """
-    #     return self._config
-
-    # def get_task_name(self) -> str:
-    #     """Get the configured task name
-
-    #     Returns:
-    #         str -- TaskConfig string name to be configured
-    #     """
-    #     return self._task_name
-
-    # def __repr__(self):
-    #     return str(self.to_json_string())
-
-    # def to_json_string(self):
-    #     """Serializes this instance to a JSON string."""
-    #     return json.dumps(self._kwargs, indent=2, sort_keys=True) + "\n"
-
-    # def to_json_file(self, json_file_path):
-    #     """ Save this instance to a json file."""
-    #     with open(json_file_path, "w", encoding="utf-8") as fh:
-    #         fh.write(self.to_json_string())
-
-    # def save_config_file(self, save_directory: str = "/"):
-    #     """ Save a configuration object to the directory `save_directory`"""
-    #     assert os.path.isdir(
-    #         save_directory
-    #     ), "Saving path should be accessible to save the configuration file"
-
-    #     # If we save using the predefined names, we can load using `from_pretrained`
-    #     output_config_file = os.path.join(save_directory, self._task_name)
-
-    #     self.to_json_file(output_config_file)
-    #     logger.info("Configuration saved in {}".format(output_config_file))
-
 
 class MTDNNTaskDefs:
     """Definition of single or multiple tasks to train. Can take a single task name or a definition yaml or json file
