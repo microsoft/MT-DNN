@@ -39,6 +39,29 @@ class TaskConfig(object):
         """ Define a generic task configuration """
         logger.info("Mapping Task attributes")
 
+        # assert training, test and dev data exists
+        assert kwargs["train_path"], "[ERROR] - Training data path cannot be empty"
+        assert kwargs["test_path"], "[ERROR] - Test data path cannot be empty"
+        assert kwargs["dev_path"], "[ERROR] - Dev data path cannot be empty"
+        assert os.path.exists(
+            kwargs["train_path"]
+        ), "[ERROR] - Training data file does not exist"
+        assert os.path.exists(
+            kwargs["test_path"]
+        ), "[ERROR] - Test data file does not exist"
+        assert os.path.exists(
+            kwargs["dev_path"]
+        ), "[ERROR] - Dev data file does not exist"
+        assert os.path.splitext(kwargs["train_path"])[
+            -1
+        ].lower(), "[ERROR] - Training data file must be a tsv"
+        assert os.path.splitext(kwargs["test_path"])[
+            -1
+        ].lower(), "[ERROR] - Test data file must be a tsv"
+        assert os.path.splitext(kwargs["dev_path"])[
+            -1
+        ].lower(), "[ERROR] - Dev data file must be a tsv"
+
         # Mapping attributes
         for key, value in kwargs.items():
             try:
