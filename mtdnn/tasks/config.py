@@ -40,7 +40,7 @@ class TaskConfig(object):
         logger.info("Mapping Task attributes")
 
         # assert training, test and dev data exists
-        assert kwargs["train_path"], "[ERROR] - Training data path cannot be empty"
+        assert kwargs["data_paths"], "[ERROR] - Data paths cannot be empty"
         assert kwargs["test_path"], "[ERROR] - Test data path cannot be empty"
         assert kwargs["dev_path"], "[ERROR] - Dev data path cannot be empty"
         assert os.path.exists(
@@ -621,7 +621,14 @@ class MTDNNTaskDefs:
                     "loss": "CeCriterion",
                     "kd_loss": "MseCriterion",
                     "n_class": 2,
-                    "task_type": "Classification"
+                    "task_type": "Classification",
+                    "train_path": "/path/to/train_data.tsv",
+                    "test_path": "/path/to/test_data.tsv",
+                    "dev_path": "/path/to/dev_data.tsv",
+                    "header": True,
+                    "is_train": True,
+                    "multi_snli": False,
+
                 }
                 ...
             }
@@ -641,7 +648,13 @@ class MTDNNTaskDefs:
                         "loss": "CeCriterion",
                         "kd_loss": "MseCriterion",
                         "n_class": 2,
-                        "task_type": "Classification"
+                        "task_type": "Classification",
+                        "train_path": "/path/to/train_data.tsv",
+                        "test_path": "/path/to/test_data.tsv",
+                        "dev_path": "/path/to/dev_data.tsv",
+                        "header": True,
+                        "is_train": True,
+                        "multi_snli": False,
                     }
                 ...
             }
@@ -687,6 +700,7 @@ class MTDNNTaskDefs:
         encoderType_map = {}
         loss_map = {}
         kd_loss_map = {}
+        data_paths_map = {}
 
         # Create an instance of task creator singleton
         task_creator = MTDNNTaskConfig()
@@ -735,6 +749,19 @@ class MTDNNTaskDefs:
             else:
                 kd_loss_map[name] = None
 
+            # Map train, test (and dev) data paths
+
+            data_paths_map[name] = {
+                "train_path": task.train_path or "",
+                "test_path": task.test_path or "",
+                "dev_path": task.dev_path or "",
+                "opts": {
+                    "header": task.header or True,
+                    "is_train": task.is_train or True,
+                    "multi_snli": task.multi_snli or False,
+                },
+            }
+
             # Track configured tasks for downstream
             self._configured_tasks.append(task.to_dict())
 
@@ -753,6 +780,7 @@ class MTDNNTaskDefs:
         self.encoderType = uniq_encoderType.pop()
         self.loss_map = loss_map
         self.kd_loss_map = kd_loss_map
+        self.data_paths_map = data_paths_map
 
     def get_configured_tasks(self) -> list:
         """Returns a list of configured tasks by TaskDefs class from the input configuration file
