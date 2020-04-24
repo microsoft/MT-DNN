@@ -39,28 +39,28 @@ class TaskConfig(object):
         """ Define a generic task configuration """
         logger.info("Mapping Task attributes")
 
-        # assert training, test and dev data exists
-        assert kwargs["data_paths"], "[ERROR] - Data paths cannot be empty"
-        assert kwargs["test_path"], "[ERROR] - Test data path cannot be empty"
-        assert kwargs["dev_path"], "[ERROR] - Dev data path cannot be empty"
-        assert os.path.exists(
-            kwargs["train_path"]
-        ), "[ERROR] - Training data file does not exist"
-        assert os.path.exists(
-            kwargs["test_path"]
-        ), "[ERROR] - Test data file does not exist"
-        assert os.path.exists(
-            kwargs["dev_path"]
-        ), "[ERROR] - Dev data file does not exist"
-        assert os.path.splitext(kwargs["train_path"])[
-            -1
-        ].lower(), "[ERROR] - Training data file must be a tsv"
-        assert os.path.splitext(kwargs["test_path"])[
-            -1
-        ].lower(), "[ERROR] - Test data file must be a tsv"
-        assert os.path.splitext(kwargs["dev_path"])[
-            -1
-        ].lower(), "[ERROR] - Dev data file must be a tsv"
+        # assert data exists for preprocessing
+        assert "data_paths" in kwargs, "[ERROR] - Data paths not provided"
+        assert (
+            kwargs["data_paths"] and type(kwargs["data_paths"]) == list
+        ), "[ERROR] - Data paths must be a list"
+        assert (
+            len(kwargs["data_paths"]) > 0
+        ), "[ERROR] - Data paths path cannot be empty"
+
+        assert all(
+            type(path) == str for path in kwargs["data_paths"]
+        ), "[ERROR] - All data paths must be strings"
+
+        assert all(
+            os.path.exists(path) for path in kwargs["data_paths"]
+        ), "[ERROR] - All data paths must exist"
+
+        assert all(
+            str(path).endswith(".tsv") for path in kwargs["data_paths"]
+        ), "[ERROR] - All data paths must be tsv format"
+
+        assert kwargs["data_opts"], "[ERROR] - Data options must be set"
 
         # Mapping attributes
         for key, value in kwargs.items():
@@ -622,12 +622,12 @@ class MTDNNTaskDefs:
                     "kd_loss": "MseCriterion",
                     "n_class": 2,
                     "task_type": "Classification",
-                    "train_path": "/path/to/train_data.tsv",
-                    "test_path": "/path/to/test_data.tsv",
-                    "dev_path": "/path/to/dev_data.tsv",
-                    "header": True,
-                    "is_train": True,
-                    "multi_snli": False,
+                    "data_paths": ["/path/to/train_data.tsv", "/path/to/test_data.tsv", "/path/to/dev_data.tsv"],
+                    "data_opts": {
+                        "header": True,
+                        "is_train": True,
+                        "multi_snli": False,
+                    }
 
                 }
                 ...
@@ -649,12 +649,12 @@ class MTDNNTaskDefs:
                         "kd_loss": "MseCriterion",
                         "n_class": 2,
                         "task_type": "Classification",
-                        "train_path": "/path/to/train_data.tsv",
-                        "test_path": "/path/to/test_data.tsv",
-                        "dev_path": "/path/to/dev_data.tsv",
-                        "header": True,
-                        "is_train": True,
-                        "multi_snli": False,
+                        "data_paths": ["/path/to/train_data.tsv", "/path/to/test_data.tsv", "/path/to/dev_data.tsv"],
+                        "data_opts": {
+                            "header": True,
+                            "is_train": True,
+                            "multi_snli": False,
+                        }
                     }
                 ...
             }
@@ -752,14 +752,9 @@ class MTDNNTaskDefs:
             # Map train, test (and dev) data paths
 
             data_paths_map[name] = {
-                "train_path": task.train_path or "",
-                "test_path": task.test_path or "",
-                "dev_path": task.dev_path or "",
-                "opts": {
-                    "header": task.header or True,
-                    "is_train": task.is_train or True,
-                    "multi_snli": task.multi_snli or False,
-                },
+                "data_paths": task.data_paths or [],
+                "data_opts": task.data_opts
+                or {"header": True, "is_train": True, "multi_snli": False,},
             }
 
             # Track configured tasks for downstream
