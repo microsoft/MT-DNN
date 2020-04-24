@@ -6,6 +6,7 @@ import logging
 import math
 import os
 import subprocess
+import sys
 import tarfile
 import zipfile
 from contextlib import contextmanager
@@ -67,22 +68,31 @@ class MTDNNCommonUtils:
         return opt_v
 
     @staticmethod
-    def setup_logging(filename="run.log", mode="w") -> Logger:
+    def setup_logging(
+        filename="run.log", silent=False, to_disk=True, mode="w"
+    ) -> Logger:
         logger = logging.getLogger(__name__)
-        log_file_handler = logging.FileHandler(
-            filename=filename, mode=mode, encoding="utf-8"
-        )
         log_formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
-        log_file_handler.setFormatter(log_formatter)
-        do_add_handler = True
-        for handler in logger.handlers:
-            if isinstance(handler, logging.FileHandler):
-                do_add_handler = False
-        if do_add_handler:
-            logger.addHandler(log_file_handler)
-        logger.setLevel(logging.DEBUG)
+        if to_disk:
+            log_file_handler = logging.FileHandler(
+                filename=filename, mode=mode, encoding="utf-8"
+            )
+
+            log_file_handler.setFormatter(log_formatter)
+            do_add_handler = True
+            for handler in logger.handlers:
+                if isinstance(handler, logging.FileHandler):
+                    do_add_handler = False
+            if do_add_handler:
+                logger.addHandler(log_file_handler)
+            logger.setLevel(logging.DEBUG)
+        if not silent:
+            ch = logging.StreamHandler(sys.stdout)
+            ch.setLevel(logging.INFO)
+            ch.setFormatter(log_formatter)
+            logger.addHandler(ch)
         return logger
 
     @staticmethod
