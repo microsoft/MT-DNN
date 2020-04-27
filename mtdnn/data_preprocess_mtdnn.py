@@ -33,7 +33,6 @@ GLUE_SUPPORTED_TASKS_LOADER_MAP = {
     "mnli": load_mnli,
     "mrpc": load_mrpc,
     "qnli": load_qnli,
-    "qqnli": load_qnnli,
     "qqp": load_qqp,
     "rte": load_rte,
     "scitail": load_scitail,
@@ -72,6 +71,9 @@ class MTDNNTaskDataFileLoader:
     def load_and_build_data(self, is_old_glue: bool = False):
 
         """
+        Load and build out the GLUE and NER Tasks. 
+        
+        Data Options format in Task Definitions will look like:
             data_opts_map[name] = {
                 "data_paths": ['train', 'test', 'dev1', 'dev2']",
                 "data_opts": {
@@ -80,7 +82,7 @@ class MTDNNTaskDataFileLoader:
                     "multi_snli": task.multi_snli or False,
                 },
             }
-            """
+        """
         datasets_map: dict = self.task_defs.data_paths_map
 
         # For each task, load file and build out data
@@ -97,7 +99,7 @@ class MTDNNTaskDataFileLoader:
                 out_file_name = f"{name}_{in_file}"
                 out_file_path = os.path.join(self.canonical_data_dir, out_file_name)
 
-                if name not in ["mnli", "qnli"]:
+                if name not "mnli":
                     try:
                         # Load and dump file
                         data = self.supported_tasks_loader_map[name](
@@ -108,8 +110,7 @@ class MTDNNTaskDataFileLoader:
                         )
                     except expression as ex:
                         raise IOError(ex)
-                # QNLI and MNLI special processing for old glue format
-                elif name in ["mnli", "qnli"]:
+                else:
                     if name == "mnli":
                         # Do the dev, train, test match, test mismatch
                         pass
@@ -146,8 +147,3 @@ class MTDNNDataPreprocess:
         self.is_old_glue = is_old_glue
         self.seed = seed
 
-
-# OTHER_SUPPORTED_TASKS_LOADER_MAP = {
-#     "squad": SQUADTaskConfig,
-#     "squad-v2": SQUADTaskConfig,
-# }
