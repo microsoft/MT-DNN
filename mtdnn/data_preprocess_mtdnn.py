@@ -68,7 +68,7 @@ class MTDNNTaskDataFileLoader:
         if not os.path.isdir(self.canonical_data_dir):
             os.mkdir(self.canonical_data_dir)
 
-    def load_and_build_data(self, is_old_glue: bool = False):
+    def load_and_build_data(self):
 
         """
         Load and build out the GLUE and NER Tasks. 
@@ -99,51 +99,24 @@ class MTDNNTaskDataFileLoader:
                 out_file_name = f"{name}_{in_file}"
                 out_file_path = os.path.join(self.canonical_data_dir, out_file_name)
 
-                if name not "mnli":
-                    try:
-                        # Load and dump file
-                        data = self.supported_tasks_loader_map[name](
-                            in_file_path, **kwargs
-                        )
-                        dump_processed_rows(
-                            data, out_file_path, self.task_defs.data_type_map[name]
-                        )
-                    except expression as ex:
-                        raise IOError(ex)
-                else:
-                    if name == "mnli":
-                        # Do the dev, train, test match, test mismatch
-                        pass
-                    elif name == "qnli":
-                        if is_old_glue:
-                            random.seed(self.seed)
-                            try:
-                                # Load and dump file
-                                data = self.supported_tasks_loader_map["qnnli"](
-                                    in_file_path, **kwargs
-                                )
-                                dump_processed_rows(
-                                    data,
-                                    out_file_path,
-                                    DataFormat.PremiseAndMultiHypothesis,
-                                )
-                            except expression as ex:
-                                raise IOError(ex)
-                        else:
-                            pass
+                try:
+                    # Load and dump file
+                    data = self.supported_tasks_loader_map[name](in_file_path, **kwargs)
+                    dump_processed_rows(
+                        data, out_file_path, self.task_defs.data_type_map[name]
+                    )
+                    logger.info(
+                        f"Sucessfully loaded and built {len(data)} samples for {name} at {out_file_path}"
+                    )
+                except expression as ex:
+                    raise IOError(ex)
 
 
 class MTDNNDataPreprocess:
     def __init__(
-        self,
-        task_defs: MTDNNTaskDefs,
-        data_dir: str = "data",
-        is_old_glue: bool = False,
-        seed: int = 13,
+        self, task_defs: MTDNNTaskDefs, data_dir: str = "data", seed: int = 13,
     ):
         assert os.path.exists(data_dir)
         self.task_defs = task_defs
         self.data_dir = data_dir
-        self.is_old_glue = is_old_glue
         self.seed = seed
-
