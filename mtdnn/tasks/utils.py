@@ -49,9 +49,9 @@ def dump_processed_rows(
                 raise ValueError(data_format)
 
 
-def load_scitail(file):
-    """Loading data of scitail
-    """
+def load_scitail(file, kwargs: dict = {}):
+    """ Loading scitail """
+
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -71,7 +71,9 @@ def load_scitail(file):
     return rows
 
 
-def load_snli(file, header=True):
+def load_snli(file, kwargs: dict = {}):
+    """ Load SNLI """
+    header = kwargs.get("header", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -99,7 +101,12 @@ def load_snli(file, header=True):
     return rows
 
 
-def load_mnli(file, header=True, multi_snli=False, is_train=True):
+def load_mnli(file, kwargs: dict = {}):
+    """ Load MNLI """
+
+    header = kwargs.get("header", True)
+    multi_snli = kwargs.get("multi_snli", False)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -129,7 +136,11 @@ def load_mnli(file, header=True, multi_snli=False, is_train=True):
     return rows
 
 
-def load_mrpc(file, header=True, is_train=True):
+def load_mrpc(file, kwargs: dict = {}):
+    """ Load MRPC """
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -153,8 +164,11 @@ def load_mrpc(file, header=True, is_train=True):
     return rows
 
 
-def load_qnli(file, header=True, is_train=True):
-    """QNLI for classification"""
+def load_qnli(file, kwargs: dict = {}):
+    """ Load QNLI for classification"""
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -182,7 +196,11 @@ def load_qnli(file, header=True, is_train=True):
     return rows
 
 
-def load_qqp(file, header=True, is_train=True):
+def load_qqp(file, kwargs: dict = {}):
+    """ Load QQP """
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     skipped = 0
@@ -218,7 +236,11 @@ def load_qqp(file, header=True, is_train=True):
     return rows
 
 
-def load_rte(file, header=True, is_train=True):
+def load_rte(file, kwargs: dict = {}):
+    """ Load RTE """
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -252,7 +274,11 @@ def load_rte(file, header=True, is_train=True):
     return rows
 
 
-def load_wnli(file, header=True, is_train=True):
+def load_wnli(file, kwargs: dict = {}):
+    """ Load WNLI """
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -286,28 +312,11 @@ def load_wnli(file, header=True, is_train=True):
     return rows
 
 
-def load_diag(file, header=True):
-    rows = []
-    cnt = 0
-    with open(file, encoding="utf8") as f:
-        for line in f:
-            if header:
-                header = False
-                continue
-            blocks = line.strip().split("\t")
-            assert len(blocks) > 3
-            sample = {
-                "uid": cnt,
-                "premise": blocks[-3],
-                "hypothesis": blocks[-2],
-                "label": blocks[-1],
-            }
-            rows.append(sample)
-            cnt += 1
-    return rows
+def load_sst(file, kwargs: dict = {}):
+    """ Load SST """
 
-
-def load_sst(file, header=True, is_train=True):
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -330,7 +339,12 @@ def load_sst(file, header=True, is_train=True):
     return rows
 
 
-def load_cola(file, header=True, is_train=True):
+def load_cola(file, kwargs: dict = {}):
+    """ Load COLA """
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
+
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -352,7 +366,11 @@ def load_cola(file, header=True, is_train=True):
     return rows
 
 
-def load_stsb(file, header=True, is_train=True):
+def load_stsb(file, kwargs: dict = {}):
+    """ Load STSB """
+
+    header = kwargs.get("header", True)
+    is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
     with open(file, encoding="utf8") as f:
@@ -383,54 +401,9 @@ def load_stsb(file, header=True, is_train=True):
     return rows
 
 
-def load_qnnli(file, header=True, is_train=True):
-    """QNLI for ranking"""
-    rows = []
-    mis_matched_cnt = 0
-    cnt = 0
-    with open(file, encoding="utf8") as f:
-        lines = f.readlines()
-        if header:
-            lines = lines[1:]
+def load_conll_ner(file, kwargs: dict = {}):
+    """ Load NER """
 
-        assert len(lines) % 2 == 0
-        for idx in range(0, len(lines), 2):
-            block1 = lines[idx].strip().split("\t")
-            block2 = lines[idx + 1].strip().split("\t")
-            # train shuffle
-            assert len(block1) > 2 and len(block2) > 2
-            if is_train and block1[1] != block2[1]:
-                mis_matched_cnt += 1
-                continue
-            assert block1[1] == block2[1]
-            lab1, lab2 = "entailment", "entailment"
-            if is_train:
-                blocks = [block1, block2]
-                shuffle(blocks)
-                block1 = blocks[0]
-                block2 = blocks[1]
-                lab1 = block1[-1]
-                lab2 = block2[-1]
-                if lab1 == lab2:
-                    mis_matched_cnt += 1
-                    continue
-            assert "," not in lab1
-            assert "," not in lab2
-            assert "," not in block1[0]
-            assert "," not in block2[0]
-            sample = {
-                "uid": cnt,
-                "ruid": "%s,%s" % (block1[0], block2[0]),
-                "premise": block1[1],
-                "hypothesis": [block1[2], block2[2]],
-                "label": "%s,%s" % (lab1, lab2),
-            }
-            cnt += 1
-            rows.append(sample)
-    return rows
-
-
-def load_conll_ner(file, is_train=True):
     rows = []
     cnt = 0
     sentence = []
@@ -454,7 +427,9 @@ def load_conll_ner(file, is_train=True):
     return rows
 
 
-def load_conll_pos(file, is_train=True):
+def load_conll_pos(file, kwargs: dict = {}):
+    """ Load POS """
+
     rows = []
     cnt = 0
     sentence = []
@@ -478,7 +453,9 @@ def load_conll_pos(file, is_train=True):
     return rows
 
 
-def load_conll_chunk(file, is_train=True):
+def load_conll_chunk(file, kwargs: dict = {}):
+    """ Load CHUNK """
+
     rows = []
     cnt = 0
     sentence = []
