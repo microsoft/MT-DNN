@@ -12,12 +12,12 @@ from mtdnn.common.types import DataFormat
 
 def dump_processed_rows(
     rows: list, out_path: str, data_format: DataFormat, write_mode: str = "w"
-):
+) -> None:
     """
     output files should have following format
-    :param rows:
-    :param out_path:
-    :return:
+    :param rows: data
+    :param out_path: output file path
+    :return: 
     """
     with open(out_path, mode=write_mode, encoding="utf-8") as out_f:
         for row in rows:
