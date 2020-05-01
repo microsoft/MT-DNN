@@ -19,8 +19,25 @@ from tensorboardX import SummaryWriter
 from torch import nn
 from torch.optim.lr_scheduler import *
 from torch.utils.data import DataLoader
-from transformers import (BertConfig, BertModel, BertPreTrainedModel,
-                          PretrainedConfig, PreTrainedModel, RobertaModel)
+from transformers import (
+    AlbertConfig,
+    AlbertModel,
+    AlbertTokenizer,
+    BertConfig,
+    BertModel,
+    BertPreTrainedModel,
+    PretrainedConfig,
+    PreTrainedModel,
+    RobertaConfig,
+    RobertaModel,
+    RobertaTokenizer,
+    XLMRobertaConfig,
+    XLMRobertaModel,
+    XLMRobertaTokenizer,
+    XLNetConfig,
+    XLNetModel,
+    XLNetTokenizer,
+)
 
 from fairseq.models.roberta import RobertaModel as FairseqRobertModel
 from mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
@@ -30,8 +47,8 @@ from mtdnn.common.linear_pooler import LinearPooler
 from mtdnn.common.loss import LOSS_REGISTRY
 from mtdnn.common.metrics import calc_metrics
 from mtdnn.common.san import SANBERTNetwork, SANClassifier
-from mtdnn.common.squad_utils import (extract_answer, merge_answers,
-                                      select_answers)
+from mtdnn.common.san_model import SanModel
+from mtdnn.common.squad_utils import extract_answer, merge_answers, select_answers
 from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
@@ -40,6 +57,16 @@ from mtdnn.tasks.config import MTDNNTaskDefs
 from mtdnn.tasks.utils import submit
 
 logger = MTDNNCommonUtils.setup_logging()
+
+# Supported Model Classes Map
+MODEL_CLASSES = {
+    "bert": (BertConfig, BertModel, BertTokenizer),
+    "xlnet": (XLNetConfig, XLNetModel, XLNetTokenizer),
+    "roberta": (RobertaConfig, RobertaModel, RobertaTokenizer),
+    "albert": (AlbertConfig, AlbertModel, AlbertTokenizer),
+    "xlmroberta": (XLMRobertaConfig, XLMRobertaModel, XLMRobertaTokenizer),
+    "san": (BertConfig, SanModel, BertTokenizer),
+}
 
 
 class MTDNNPretrainedModel(nn.Module):
