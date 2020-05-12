@@ -2,9 +2,10 @@
 # Licensed under the MIT License.
 import os
 from collections import ChainMap
-from typing import List, Dict
+from typing import Dict, List
 
 from mtdnn.common import squad_utils
+from mtdnn.common.tokenization_utils import load_data
 from mtdnn.common.types import DataFormat, EncoderModelType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.tasks.config import MTDNNTaskDefs
@@ -384,10 +385,5 @@ class MTDNNDataBuilder:
                 dump_path = os.path.join(mt_dnn_root, "%s_%s.json" % (task, split_name))
                 logger.info(dump_path)
                 self.build_data_from_format(
-                    rows,
-                    dump_path,
-                    tokenizer,
-                    task_def.data_type,
-                    encoderModelType=encoder_model,
-                    lab_dict=task_def.label_vocab,
+                    rows, dump_path, task_def.data_type, lab_dict=task_def.label_vocab,
                 )
