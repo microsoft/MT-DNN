@@ -1,5 +1,8 @@
 # coding=utf-8
 # Copyright (c) Microsoft. All rights reserved.
+from mtdnn.common.types import TaskType, DataFormat
+
+
 def load_data(file_path: str, task_def):
     data_format = task_def.data_type
     task_type = task_def.task_type
@@ -30,7 +33,7 @@ def load_data(file_path: str, task_def):
                 "premise": fields[3],
                 "hypothesis": fields[4:],
             }
-        elif data_format == DataFormat.sequence:
+        elif data_format == DataFormat.Sequence:
             row = {
                 "uid": fields[0],
                 "label": eval(fields[1]),
