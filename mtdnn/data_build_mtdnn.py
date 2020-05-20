@@ -1,7 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+import json
 import os
-from collections import ChainMap
+from collections import ChainMap, defaultdict
 from typing import Dict, List
 
 from mtdnn.common import squad_utils
@@ -10,7 +11,7 @@ from mtdnn.common.types import DataFormat, EncoderModelType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.tasks.config import MTDNNTaskDefs
 from mtdnn.tasks.utils import (
-    dump_processed_rows,
+    process_data_and_dump_rows,
     load_cola,
     load_conll_chunk,
     load_conll_ner,
@@ -62,7 +63,7 @@ class MTDNNTaskDataFileLoader:
         self,
         task_defs: MTDNNTaskDefs,
         data_dir: str = "data",
-        canonical_data_suffix: str = "canonical",
+        canonical_data_suffix: str = "canonical_data",
     ):
         self.data_dir = data_dir
         self.task_defs = task_defs
@@ -70,7 +71,7 @@ class MTDNNTaskDataFileLoader:
         if not os.path.isdir(self.canonical_data_dir):
             os.mkdir(self.canonical_data_dir)
 
-    def load_and_build_data(self):
+    def load_and_build_data(self, dump_rows: bool = False):
 
         """
         Load and build out the GLUE and NER Tasks. 
@@ -86,7 +87,7 @@ class MTDNNTaskDataFileLoader:
             }
         """
         datasets_map: dict = self.task_defs.data_paths_map
-
+        processed_data = defaultdict(lambda: [])
         # For each task, load file and build out data
         for name, params in datasets_map.items():
 
@@ -103,15 +104,25 @@ class MTDNNTaskDataFileLoader:
 
                 try:
                     # Load and dump file
-                    data = self.supported_tasks_loader_map[name](in_file_path, **kwargs)
-                    dump_processed_rows(
-                        data, out_file_path, self.task_defs.data_type_map[name]
+                    data = self.supported_tasks_loader_map[name](
+                        in_file_path, **data_opts
+                    )
+                    processed_rows = process_data_and_dump_rows(
+                        rows=data,
+                        out_path=out_file_path,
+                        data_format=self.task_defs.data_type_map[name],
+                        dump_rows=dump_rows,
+                    )
+                    # Format - cola_dev: [processed_rows]
+                    processed_data.update(
+                        {os.path.splitext(out_file_name)[0]: processed_rows}
                     )
                     logger.info(
                         f"Sucessfully loaded and built {len(data)} samples for {name} at {out_file_path}"
                     )
-                except expression as ex:
+                except Exception as ex:
                     raise IOError(ex)
+        return processed_data
 
 
 class MTDNNDataBuilder:
@@ -126,10 +137,14 @@ class MTDNNDataBuilder:
         self,
         tokenizer: MTDNNTokenizer = None,
         task_defs: MTDNNTaskDefs = None,
+        do_lower_case: bool = False,
+        processed_data: dict = defaultdict(lambda: []),
         canonical_data_dir: str = "data/canonical_data",
     ):
         assert tokenizer, "[ERROR] - MTDNN Tokenizer is required"
         assert task_defs, "[ERROR] - MTDNN Task Definition is required"
+        assert processed_data, "[ERROR] - Processed Data is required"
+        self.processed_data = processed_data
         self.tokenizer = tokenizer
         self.task_defs = task_defs
         self.model_name = (
@@ -146,6 +161,9 @@ class MTDNNDataBuilder:
             else f"{mt_dnn_model_name_fmt}"
         )
         self.canonical_data_dir = canonical_data_dir
+        self.mt_dnn_root = os.path.join(self.canonical_data_dir, self.mt_dnn_suffix)
+        if not os.path.isdir(self.mt_dnn_root):
+            os.mkdir(self.mt_dnn_root)
 
     def build_data_premise_only(
         self, data: List, dump_path: str = "", max_seq_len: int = 0,
@@ -351,7 +369,7 @@ class MTDNNDataBuilder:
         self,
         data: List,
         dump_path: str = "",
-        data_format: int = DataFormat.PremiseOnly,
+        data_format: int = DataFormat.Init,
         max_seq_len: int = 0,
         label_mapper: Dict = None,
     ):
@@ -373,17 +391,23 @@ class MTDNNDataBuilder:
 
     def build(self):
         """ Tokenize and build data for the tasks """
-        for task in self.task_defs.task_type_map.keys():
-            task_def = task_defs.get_task_def(task)
+        for task in self.task_defs.get_task_names():
+            task_def = self.task_defs.get_task_def(task)
             logger.info(f"Building Data For {task.upper()} Task")
+            # work on data splits - train, test, dev or (matched and mismatched for mnli)
             for split_name in task_def.split_names:
-                file_path = os.path.join(root, "%s_%s.tsv" % (task, split_name))
+                file_path = os.path.join(
+                    self.canonical_data_dir, f"{task}_{split_name}.tsv"
+                )
                 assert os.path.exists(
                     file_path
                 ), f"[ERROR] - File {file_path} does not exist."
                 rows = load_data(file_path, task_def)
-                dump_path = os.path.join(mt_dnn_root, "%s_%s.json" % (task, split_name))
+                dump_path = os.path.join(self.mt_dnn_root, f"{task}_{split_name}.json")
                 logger.info(dump_path)
-                self.build_data_from_format(
-                    rows, dump_path, task_def.data_type, lab_dict=task_def.label_vocab,
+                self._build_data_from_format(
+                    data=rows,
+                    dump_pah=dump_path,
+                    data_format=self.task_defs.get(task, DataFormat.Init),
+                    label_mapper=self.task_defs.global_map.get(task, None),
                 )
