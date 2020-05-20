@@ -78,6 +78,12 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
                             "matched_test",
                             "mismatched_test",
                         ],
+                        "data_paths": ["CoLA/train.tsv","CoLA/dev.tsv","CoLA/test.tsv"],
+                        "data_opts": {
+                            "header": True,
+                            "is_train": True,
+                            "multi_snli": False,
+                        },
                         "task_type": "Classification",
                     },
                 }
