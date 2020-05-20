@@ -275,7 +275,7 @@ class STSBTaskConfig(TaskConfig):
                 "task_name": "stsb",
                 "data_format": "PremiseAndOneHypothesis",
                 "encoder_type": "BERT",
-                "enable_san": false,
+                "enable_san": False,
                 "metric_meta": ["Pearson", "Spearman"],
                 "n_class": 1,
                 "loss": "MseCriterion",
@@ -568,6 +568,23 @@ class SQUADTaskConfig(TaskConfig):
         self.dropout_p = kwargs.pop("dropout_p", 0.1)
 
 
+class MaskLMTaskConfig(TaskConfig):
+    def __init__(self, kwargs: dict = {}):
+        if not kwargs:
+            kwargs = {
+                "task_name": "MaskLM",
+                "data_format": "MLM",
+                "encoder_type": "BERT",
+                "enable_san": False,
+                "metric_meta": ["ACC"],
+                "n_class": 30522,
+                "task_type": "MaskLM",
+                "loss": "MlmCriterion",
+                "split_names": ["train", "dev"],
+            }
+        super(MaskLMTaskConfig, self).__init__(**kwargs)
+
+
 # Map of supported tasks
 SUPPORTED_TASKS_MAP = {
     "cola": COLATaskConfig,
@@ -586,6 +603,7 @@ SUPPORTED_TASKS_MAP = {
     "chunk": CHUNKTaskConfig,
     "squad": SQUADTaskConfig,
     "squad-v2": SQUADTaskConfig,
+    "masklm": MaskLMTaskConfig,
 }
 
 
@@ -629,14 +647,14 @@ class MTDNNTaskDefs:
                     "loss": "CeCriterion",
                     "kd_loss": "MseCriterion",
                     "n_class": 2,
-                    "task_type": "Classification",
-                    "data_paths": ["/path/to/train_data.tsv", "/path/to/test_data.tsv", "/path/to/dev_data.tsv"],
+                    "split_names": ["train", "test", "dev"],
+                    "data_paths": ["CoLA/train.tsv","CoLA/dev.tsv","CoLA/test.tsv"],
                     "data_opts": {
                         "header": True,
                         "is_train": True,
                         "multi_snli": False,
-                    }
-
+                    },
+                    "task_type": "Classification",
                 }
                 ...
             }
@@ -656,14 +674,15 @@ class MTDNNTaskDefs:
                         "loss": "CeCriterion",
                         "kd_loss": "MseCriterion",
                         "n_class": 2,
-                        "task_type": "Classification",
-                        "data_paths": ["/path/to/train_data.tsv", "/path/to/test_data.tsv", "/path/to/dev_data.tsv"],
+                        "split_names": ["train", "test", "dev"],
+                        "data_paths": ["CoLA/train.tsv","CoLA/dev.tsv","CoLA/test.tsv"],
                         "data_opts": {
                             "header": True,
                             "is_train": True,
                             "multi_snli": False,
-                        }
-                    }
+                        },
+                        "task_type": "Classification",
+                }
                 ...
             }
 
@@ -758,7 +777,6 @@ class MTDNNTaskDefs:
                 kd_loss_map[name] = None
 
             # Map train, test (and dev) data paths
-
             data_paths_map[name] = {
                 "data_paths": task.data_paths or [],
                 "data_opts": task.data_opts
@@ -786,12 +804,28 @@ class MTDNNTaskDefs:
         self.data_paths_map = data_paths_map
 
     def get_configured_tasks(self) -> list:
-        """Returns a list of configured tasks by TaskDefs class from the input configuration file
+        """Returns a list of configured tasks objects by TaskDefs class from the input configuration file
         
         Returns:
             list -- List of configured task classes
         """
         return self._configured_tasks
+
+    def get_task_names(self) -> list:
+        """ Returns a list of configured task names
+        
+        Returns:
+            list -- List of configured task classes
+        """
+        return self.task_type_map.keys()
+
+    def get_task_def(self, task_name: str = ""):
+        assert task_name, "[ERROR] - Task name cannot be empty"
+        return list(
+            filter(
+                lambda task: task["task_name"] == task_name, self.get_configured_tasks()
+            )
+        )
 
 
 class MTDNNTask:
