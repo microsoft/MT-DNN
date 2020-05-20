@@ -13,6 +13,7 @@ class TaskType(IntEnum):
 
 
 class DataFormat(IntEnum):
+    Init = 0
     PremiseOnly = 1
     PremiseAndOneHypothesis = 2
     PremiseAndMultiHypothesis = 3
