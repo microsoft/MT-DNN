@@ -5,34 +5,37 @@ import pdb
 from random import shuffle
 from sys import path
 
-from data_utils.task_def import DataFormat
 from mtdnn.common.metrics import calc_metrics
 from mtdnn.common.types import DataFormat
 
 
-def dump_processed_rows(
-    rows: list, out_path: str, data_format: DataFormat, write_mode: str = "w"
+def process_data_and_dump_rows(
+    rows: list,
+    out_path: str,
+    data_format: DataFormat,
+    write_mode: str = "w",
+    dump_rows: bool = False,
 ) -> None:
     """
-    output files should have following format
-    :param rows: data
-    :param out_path: output file path
-    :return: 
+        Output files should have following format
+        :param rows: data
+        :param out_path: output file path
+        :return: processed_rows: List of string rows 
     """
+    processed_rows = []
     with open(out_path, mode=write_mode, encoding="utf-8") as out_f:
         for row in rows:
+            data = ""
             if data_format in [DataFormat.PremiseOnly, DataFormat.Sequence]:
                 for col in ["uid", "label", "premise"]:
                     if "\t" in str(row[col]):
                         pdb.set_trace()
-                out_f.write(f"{row['uid']}\t{row['label']}\t{row['premise']}\n")
+                data = f"{row['uid']}\t{row['label']}\t{row['premise']}\n"
             elif data_format == DataFormat.PremiseAndOneHypothesis:
                 for col in ["uid", "label", "premise", "hypothesis"]:
                     if "\t" in str(row[col]):
                         pdb.set_trace()
-                out_f.write(
-                    f"{row['uid']}\t{row['label']}\t{row['premise']}\t{row['hypothesis']}\n"
-                )
+                data = f"{row['uid']}\t{row['label']}\t{row['premise']}\t{row['hypothesis']}\n"
             elif data_format == DataFormat.PremiseAndMultiHypothesis:
                 for col in ["uid", "label", "premise"]:
                     if "\t" in str(row[col]):
@@ -42,11 +45,15 @@ def dump_processed_rows(
                     if "\t" in str(one_hypo):
                         pdb.set_trace()
                 hypothesis = "\t".join(hypothesis)
-                out_f.write(
-                    f"{row['uid']}\t{row['ruid']}\t{row['label']}\t{row['premise']}\t{hypothesis}\n"
-                )
+                data = f"{row['uid']}\t{row['ruid']}\t{row['label']}\t{row['premise']}\t{hypothesis}\n"
             else:
                 raise ValueError(data_format)
+
+            # Save data if dump_rows is true
+            if dump_rows:
+                out_f.write(data)
+            processed_rows.append(data)
+    return processed_rows
 
 
 def load_scitail(file, kwargs: dict = {}):
