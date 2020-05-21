@@ -3,10 +3,25 @@
 import json
 from typing import Union
 
+import numpy as np
+
 from mtdnn.common.types import DataFormat, TaskType
+from mtdnn.tasks.config import get_task_obj
 
 
 def load_data(file_path_or_processed_data_list: Union[str, list], task_def):
+    """Load data in MT-DNN Format
+
+    Arguments:
+        file_path_or_processed_data_list {Union[str, list]} -- File path or processed rows object
+        task_def {dict} -- Task Definition to be loaded
+
+    Raises:
+        ValueError: Invalid Task requested
+
+    Returns:
+        list -- list of processed data in MT-DNN Format
+    """
 
     data_format = task_def.data_type
     task_type = task_def.task_type
@@ -58,7 +73,7 @@ def load_data(file_path_or_processed_data_list: Union[str, list], task_def):
         else:
             raise ValueError(data_format)
 
-        task_obj = tasks.get_task_obj(task_def)
+        task_obj = get_task_obj(task_def)
         if task_obj is not None:
             row["label"] = task_obj.input_parse_label(row["label"])
         elif task_type == TaskType.Ranking:
@@ -71,7 +86,7 @@ def load_data(file_path_or_processed_data_list: Union[str, list], task_def):
             row["olabel"] = labels
         elif task_type == TaskType.Span:
             pass  # don't process row label
-        elif task_type == TaskType.SeqenceLabeling:
+        elif task_type == TaskType.SequenceLabeling:
             assert type(row["label"]) is list
             row["label"] = [label_dict[label] for label in row["label"]]
 
