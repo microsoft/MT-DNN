@@ -803,7 +803,7 @@ class MTDNNTaskDefs:
         self.kd_loss_map = kd_loss_map
         self.data_paths_map = data_paths_map
 
-    def get_configured_tasks(self) -> list:
+    def get_configured_tasks(self):
         """Returns a list of configured tasks objects by TaskDefs class from the input configuration file
         
         Returns:
@@ -811,7 +811,7 @@ class MTDNNTaskDefs:
         """
         return self._configured_tasks
 
-    def get_task_names(self) -> list:
+    def get_task_names(self):
         """ Returns a list of configured task names
         
         Returns:
@@ -820,12 +820,21 @@ class MTDNNTaskDefs:
         return self.task_type_map.keys()
 
     def get_task_def(self, task_name: str = ""):
+        """Returns a dictionary of parameters for specified task
+
+        Keyword Arguments:
+            task_name {str} -- Task name for definition to get (default: {""})
+
+        Returns:
+            dict -- Task definition for specified task
+        """
         assert task_name, "[ERROR] - Task name cannot be empty"
-        return list(
-            filter(
-                lambda task: task["task_name"] == task_name, self.get_configured_tasks()
-            )
-        )
+        return {
+            k: v
+            for ele in self.get_configured_tasks()
+            for k, v in ele.items()
+            if ele["task_name"] == task_name
+        }
 
 
 class MTDNNTask:
