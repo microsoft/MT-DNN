@@ -15,6 +15,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from fairseq.models.roberta import RobertaModel as FairseqRobertModel
+from pytorch_pretrained_bert import BertAdam as Adam
 from tensorboardX import SummaryWriter
 from torch import nn
 from torch.optim.lr_scheduler import *
@@ -26,6 +28,7 @@ from transformers import (
     BertConfig,
     BertModel,
     BertPreTrainedModel,
+    BertTokenizer,
     PretrainedConfig,
     PreTrainedModel,
     RobertaConfig,
@@ -39,7 +42,6 @@ from transformers import (
     XLNetTokenizer,
 )
 
-from fairseq.models.roberta import RobertaModel as FairseqRobertModel
 from mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
 from mtdnn.common.average_meter import AverageMeter
 from mtdnn.common.bert_optim import Adamax, RAdam

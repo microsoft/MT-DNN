@@ -9,7 +9,7 @@ import torch
 from tensorboardX import SummaryWriter
 from torch.utils.data import BatchSampler, DataLoader, Dataset
 
-from mtdnn.common.glue.glue_utils import submit
+from mtdnn.common.utils import submit
 from mtdnn.common.types import TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
