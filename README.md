@@ -48,6 +48,7 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
     ```Python
     pip list | grep mtdnn
     ```  
+> For Mixed Precision and Distributed Training, please install NVIDIA apex by following instructions [here](https://github.com/NVIDIA/apex#linux)  
 
 ## How To Use
 1. Create a model configuration object, `MTDNNConfig`, with the necessary parameters to initialize the MT-DNN model. Initialization without any parameters will default to a similar configuration that initializes a BERT model. This configuration object can be initialized wit training and learning parameters like `batch_size` and `learning_rate`. Please consult the class implementation for all parameters.   
