@@ -48,32 +48,39 @@ class TaskConfig(object):
         logger.info("Mapping Task attributes")
 
         # assert data exists for preprocessing
-        assert "data_paths" in kwargs, "[ERROR] - Data paths not provided"
         assert (
-            kwargs["data_paths"] and type(kwargs["data_paths"]) == list
-        ), "[ERROR] - Data paths must be a list"
+            "data_source_dir" in kwargs
+        ), "[ERROR] - Source data directory with data splits not provided"
         assert (
-            len(kwargs["data_paths"]) > 0
-        ), "[ERROR] - Data paths path cannot be empty"
+            kwargs["data_source_dir"] and type(kwargs["data_source_dir"]) == str
+        ), "[ERROR] - Source data directory path must be a string"
+        assert kwargs[
+            "data_source_dir"
+        ], "[ERROR] - Source data directory path cannot be empty"
+        assert os.path.isdir(
+            kwargs["data_source_dir"]
+        ), "[ERROR] - Source data directory path does not exist"
 
         assert all(
-            type(path) == str for path in kwargs["data_paths"]
-        ), "[ERROR] - All data paths must be strings"
+            os.path.exists(os.path.join(kwargs["data_source_dir"], f"{split}.tsv"))
+            for split in kwargs["split_names"]
+        ), f"[ERROR] - All data splits do not exist in path - {kwargs['data_source_dir']}"
 
-        assert all(
-            os.path.exists(path) for path in kwargs["data_paths"]
-        ), "[ERROR] - All data paths must exist"
-
-        assert all(
-            str(path).endswith(".tsv") for path in kwargs["data_paths"]
-        ), "[ERROR] - All data paths must be tsv format"
-
-        assert kwargs["data_opts"], "[ERROR] - Data options must be set"
+        assert kwargs[
+            "data_process_opts"
+        ], "[ERROR] - Source data processing options must be set"
 
         # Mapping attributes
         for key, value in kwargs.items():
             try:
-                setattr(self, key, value)
+                if key == "data_source_dir":
+                    data_paths = [
+                        os.path.join(kwargs["data_source_dir"], f"{split}.tsv")
+                        for split in kwargs["split_names"]
+                    ]
+                    setattr(self, "data_paths", data_paths)
+                else:
+                    setattr(self, key, value)
             except AttributeError as err:
                 logger.error(
                     f"[ERROR] - Unable to set {key} with value {value} for {self}"
@@ -779,7 +786,7 @@ class MTDNNTaskDefs:
             # Map train, test (and dev) data paths
             data_paths_map[name] = {
                 "data_paths": task.data_paths or [],
-                "data_opts": task.data_opts
+                "data_opts": task.data_process_opts
                 or {"header": True, "is_train": True, "multi_snli": False,},
             }
 

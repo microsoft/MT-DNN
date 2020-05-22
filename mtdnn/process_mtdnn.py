@@ -9,7 +9,6 @@ import torch
 from tensorboardX import SummaryWriter
 from torch.utils.data import BatchSampler, DataLoader, Dataset
 
-from mtdnn.common.utils import submit
 from mtdnn.common.types import TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
@@ -21,6 +20,7 @@ from mtdnn.dataset_mtdnn import (
 )
 from mtdnn.modeling_mtdnn import MTDNNModel
 from mtdnn.tasks.config import MTDNNTaskDefs
+from mtdnn.tasks.utils import submit
 
 logger = MTDNNCommonUtils.setup_logging(mode="w")
 

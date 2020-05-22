@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 from mtdnn.common.tokenization_utils import load_data, load_score_file
+from mtdnn.common.types import EncoderModelType
 from mtdnn.modeling_mtdnn import MODEL_CLASSES
 from mtdnn.tasks.config import MTDNNTaskDefs
 
@@ -15,7 +16,7 @@ class MTDNNTokenizer:
         self.literal_model_name = model_name.split("-")[0]
         self.model_type = EncoderModelType[
             self.literal_model_name.upper()
-        ]  # BERT = 1, ROBERTA = 2
+        ].name  # BERT = 1, ROBERTA = 2
         mt_dnn_model_name_fmt = model_name.replace("-", "_")  # format to mt-dnn format
         self.mt_dnn_suffix = (
             f"{mt_dnn_model_name_fmt}_lower"

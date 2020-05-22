@@ -94,7 +94,7 @@ def load_data(file_path_or_processed_data_list: Union[str, list], task_def):
     return rows
 
 
-def load_score_file(score_path: str - "", n_class: int = 1):
+def load_score_file(score_path: str = "", n_class: int = 1):
     sample_id_2_pred_score_seg_dic = {}
     score_obj = json.loads(open(score_path, encoding="utf-8").read())
     assert (len(score_obj["scores"]) % len(score_obj["uids"]) == 0) and (
