@@ -5,6 +5,7 @@ import json
 import logging
 import math
 import os
+import random
 import subprocess
 import sys
 import tarfile
@@ -13,6 +14,7 @@ from contextlib import contextmanager
 from logging import Logger
 from tempfile import TemporaryDirectory
 
+import numpy
 import requests
 import torch
 from tqdm import tqdm
@@ -114,7 +116,9 @@ class MTDNNCommonUtils:
             tmp_dir.cleanup()
 
     @staticmethod
-    def maybe_download(url, filename=None, work_directory=".", expected_bytes=None):
+    def maybe_download(
+        url, filename=None, work_directory=".", expected_bytes=None, log: Logger = None
+    ):
         """Download a file if it is not already downloaded.
 
         Args:

@@ -56,12 +56,12 @@ def process_data_and_dump_rows(
     return processed_rows
 
 
-def load_scitail(file, kwargs: dict = {}):
+def load_scitail(file_path, kwargs: dict = {}):
     """ Loading scitail """
 
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             blocks = line.strip().split("\t")
             assert len(blocks) > 2
@@ -78,12 +78,12 @@ def load_scitail(file, kwargs: dict = {}):
     return rows
 
 
-def load_snli(file, kwargs: dict = {}):
+def load_snli(file_path, kwargs: dict = {}):
     """ Load SNLI """
     header = kwargs.get("header", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -108,15 +108,15 @@ def load_snli(file, kwargs: dict = {}):
     return rows
 
 
-def load_mnli(file, kwargs: dict = {}):
+def load_mnli(file_path, kwargs: dict = {}):
     """ Load MNLI """
-
+    print("Inside LOAD MNLI")
     header = kwargs.get("header", True)
     multi_snli = kwargs.get("multi_snli", False)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -143,14 +143,14 @@ def load_mnli(file, kwargs: dict = {}):
     return rows
 
 
-def load_mrpc(file, kwargs: dict = {}):
+def load_mrpc(file_path, kwargs: dict = {}):
     """ Load MRPC """
 
     header = kwargs.get("header", True)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -171,14 +171,14 @@ def load_mrpc(file, kwargs: dict = {}):
     return rows
 
 
-def load_qnli(file, kwargs: dict = {}):
+def load_qnli(file_path, kwargs: dict = {}):
     """ Load QNLI for classification"""
 
     header = kwargs.get("header", True)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -203,7 +203,7 @@ def load_qnli(file, kwargs: dict = {}):
     return rows
 
 
-def load_qqp(file, kwargs: dict = {}):
+def load_qqp(file_path, kwargs: dict = {}):
     """ Load QQP """
 
     header = kwargs.get("header", True)
@@ -211,7 +211,7 @@ def load_qqp(file, kwargs: dict = {}):
     rows = []
     cnt = 0
     skipped = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -243,14 +243,14 @@ def load_qqp(file, kwargs: dict = {}):
     return rows
 
 
-def load_rte(file, kwargs: dict = {}):
+def load_rte(file_path, kwargs: dict = {}):
     """ Load RTE """
 
     header = kwargs.get("header", True)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -281,14 +281,14 @@ def load_rte(file, kwargs: dict = {}):
     return rows
 
 
-def load_wnli(file, kwargs: dict = {}):
+def load_wnli(file_path, kwargs: dict = {}):
     """ Load WNLI """
 
     header = kwargs.get("header", True)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -319,14 +319,14 @@ def load_wnli(file, kwargs: dict = {}):
     return rows
 
 
-def load_sst(file, kwargs: dict = {}):
+def load_sst(file_path, kwargs: dict = {}):
     """ Load SST """
 
     header = kwargs.get("header", True)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -346,7 +346,7 @@ def load_sst(file, kwargs: dict = {}):
     return rows
 
 
-def load_cola(file, kwargs: dict = {}):
+def load_cola(file_path, kwargs: dict = {}):
     """ Load COLA """
 
     header = kwargs.get("header", True)
@@ -354,7 +354,7 @@ def load_cola(file, kwargs: dict = {}):
 
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -373,14 +373,14 @@ def load_cola(file, kwargs: dict = {}):
     return rows
 
 
-def load_stsb(file, kwargs: dict = {}):
+def load_stsb(file_path, kwargs: dict = {}):
     """ Load STSB """
 
     header = kwargs.get("header", True)
     is_train = kwargs.get("is_train", True)
     rows = []
     cnt = 0
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             if header:
                 header = False
@@ -408,14 +408,14 @@ def load_stsb(file, kwargs: dict = {}):
     return rows
 
 
-def load_conll_ner(file, kwargs: dict = {}):
+def load_conll_ner(file_path, kwargs: dict = {}):
     """ Load NER """
 
     rows = []
     cnt = 0
     sentence = []
     label = []
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             line = line.strip()
             if len(line) == 0 or line.startswith("-DOCSTART") or line[0] == "\n":
@@ -434,14 +434,14 @@ def load_conll_ner(file, kwargs: dict = {}):
     return rows
 
 
-def load_conll_pos(file, kwargs: dict = {}):
+def load_conll_pos(file_path, kwargs: dict = {}):
     """ Load POS """
 
     rows = []
     cnt = 0
     sentence = []
     label = []
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             line = line.strip()
             if len(line) == 0 or line.startswith("-DOCSTART") or line[0] == "\n":
@@ -460,14 +460,14 @@ def load_conll_pos(file, kwargs: dict = {}):
     return rows
 
 
-def load_conll_chunk(file, kwargs: dict = {}):
+def load_conll_chunk(file_path, kwargs: dict = {}):
     """ Load CHUNK """
 
     rows = []
     cnt = 0
     sentence = []
     label = []
-    with open(file, encoding="utf8") as f:
+    with open(file_path, encoding="utf8") as f:
         for line in f:
             line = line.strip()
             if len(line) == 0 or line.startswith("-DOCSTART") or line[0] == "\n":
