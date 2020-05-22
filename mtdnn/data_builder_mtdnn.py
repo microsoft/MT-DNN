@@ -19,7 +19,6 @@ from mtdnn.tasks.utils import (
     load_mnli,
     load_mrpc,
     load_qnli,
-    load_qnnli,
     load_qqp,
     load_rte,
     load_scitail,
@@ -98,11 +97,13 @@ class MTDNNTaskDataFileLoader:
         datasets_map: dict = self.task_defs.data_paths_map
         processed_data = defaultdict(lambda: [])
         # For each task, load file and build out data
+
         for name, params in datasets_map.items():
 
             # TODO - standardize parameters for all loaders to use opts
-            data_opts = params.pop("data_opts")
-
+            data_opts: dict = params.get("data_opts")
+            print("==========>", data_opts)
+            print("==============>", type(data_opts))
             # For each task, we process the provided data files into MT-DNN format
             # Format of input is of the form MNLI/{train.tsv, dev_matched.tsv, dev_mismatched.tsv, ...}
             for path in params["data_paths"]:
@@ -113,9 +114,9 @@ class MTDNNTaskDataFileLoader:
 
                 try:
                     # Load and dump file
-                    data = self.supported_tasks_loader_map[name](
-                        in_file_path, **data_opts
-                    )
+                    func = self.supported_tasks_loader_map[name]
+                    print("Funciton is ==========>", func)
+                    data = func(in_file_path, data_opts)
                     processed_rows = process_data_and_dump_rows(
                         rows=data,
                         out_path=out_file_path,
@@ -153,7 +154,6 @@ class MTDNNDataBuilder:
     ):
         assert tokenizer, "[ERROR] - MTDNN Tokenizer is required"
         assert task_defs, "[ERROR] - MTDNN Task Definition is required"
-        assert processed_tasks_data, "[ERROR] - Processed Data is required"
         self.tokenizer = tokenizer
         self.task_defs = task_defs
         self.model_name = (
@@ -163,7 +163,9 @@ class MTDNNDataBuilder:
         self.model_type = EncoderModelType[
             self.literal_model_name.upper()
         ]  # BERT = 1, ROBERTA = 2ll
-        mt_dnn_model_name_fmt = model_name.replace("-", "_")  # format to mt-dnn formatl
+        mt_dnn_model_name_fmt = self.model_name.replace(
+            "-", "_"
+        )  # format to mt-dnn format
         self.mt_dnn_suffix = (
             f"{mt_dnn_model_name_fmt}_lower"
             if do_lower_case
