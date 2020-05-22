@@ -15,6 +15,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from apex import amp
 from fairseq.models.roberta import RobertaModel as FairseqRobertModel
 from pytorch_pretrained_bert import BertAdam as Adam
 from tensorboardX import SummaryWriter
@@ -188,7 +189,8 @@ class MTDNNModel(MTDNNPretrainedModel):
             with MTDNNCommonUtils.download_path() as file_path:
                 path = pathlib.Path(file_path)
                 self.local_model_path = MTDNNCommonUtils.maybe_download(
-                    url=self.pretrained_model_archive_map[pretrained_model_name]
+                    url=self.pretrained_model_archive_map[pretrained_model_name],
+                    log=logger,
                 )
             self.bert_model = MTDNNCommonUtils.load_pytorch_model(self.local_model_path)
             self.state_dict = self.bert_model["state"]
@@ -331,8 +333,6 @@ class MTDNNModel(MTDNNPretrainedModel):
 
         if self.config.fp16:
             try:
-                from apex import amp
-
                 global amp
             except ImportError:
                 raise ImportError(
