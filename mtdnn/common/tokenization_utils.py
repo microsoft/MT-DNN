@@ -5,11 +5,13 @@ from typing import Union
 
 import numpy as np
 
-from mtdnn.common.types import DataFormat, TaskType
+from mtdnn.common.types import DataFormat, TaskType, TaskDefType
 from mtdnn.tasks.config import get_task_obj
 
 
-def load_data(file_path_or_processed_data_list: Union[str, list], task_def):
+def load_task_data(
+    file_path_or_processed_data_list: Union[str, list], task_def: TaskDefType
+):
     """Load data in MT-DNN Format
 
     Arguments:
@@ -22,17 +24,17 @@ def load_data(file_path_or_processed_data_list: Union[str, list], task_def):
     Returns:
         list -- list of processed data in MT-DNN Format
     """
-
-    data_format = task_def.data_type
+    assert task_def, "[ERROR] - Task Definition cannot be none"
+    data_format = task_def.data_format
     task_type = task_def.task_type
     label_dict = task_def.label_vocab
     if task_type == TaskType.Ranking:
         assert data_format == DataFormat.PremiseAndMultiHypothesis
-
     if isinstance(file_path_or_processed_data_list, str):
         processed_data = open(file_path_or_processed_data_list, encoding="utf-8")
     elif isinstance(file_path_or_processed_data_list, list):
         processed_data = file_path_or_processed_data_list
+
     rows = []
     for line in processed_data:
         fields = line.strip("\n").split("\t")

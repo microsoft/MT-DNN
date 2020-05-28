@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-from mtdnn.common.tokenization_utils import load_data, load_score_file
 from mtdnn.common.types import EncoderModelType
 from mtdnn.modeling_mtdnn import MODEL_CLASSES
 from mtdnn.tasks.config import MTDNNTaskDefs
