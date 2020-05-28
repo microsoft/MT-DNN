@@ -23,36 +23,38 @@ def process_data_and_dump_rows(
         :return: processed_rows: List of string rows 
     """
     processed_rows = []
-    with open(out_path, mode=write_mode, encoding="utf-8") as out_f:
-        for row in rows:
-            data = ""
-            if data_format in [DataFormat.PremiseOnly, DataFormat.Sequence]:
-                for col in ["uid", "label", "premise"]:
-                    if "\t" in str(row[col]):
-                        pdb.set_trace()
-                data = f"{row['uid']}\t{row['label']}\t{row['premise']}\n"
-            elif data_format == DataFormat.PremiseAndOneHypothesis:
-                for col in ["uid", "label", "premise", "hypothesis"]:
-                    if "\t" in str(row[col]):
-                        pdb.set_trace()
-                data = f"{row['uid']}\t{row['label']}\t{row['premise']}\t{row['hypothesis']}\n"
-            elif data_format == DataFormat.PremiseAndMultiHypothesis:
-                for col in ["uid", "label", "premise"]:
-                    if "\t" in str(row[col]):
-                        pdb.set_trace()
-                hypothesis = row["hypothesis"]
-                for one_hypo in hypothesis:
-                    if "\t" in str(one_hypo):
-                        pdb.set_trace()
-                hypothesis = "\t".join(hypothesis)
-                data = f"{row['uid']}\t{row['ruid']}\t{row['label']}\t{row['premise']}\t{hypothesis}\n"
-            else:
-                raise ValueError(data_format)
+    for row in rows:
+        data = ""
+        if data_format in [DataFormat.PremiseOnly, DataFormat.Sequence]:
+            for col in ["uid", "label", "premise"]:
+                if "\t" in str(row[col]):
+                    pdb.set_trace()
+            data = f"{row['uid']}\t{row['label']}\t{row['premise']}\n"
+        elif data_format == DataFormat.PremiseAndOneHypothesis:
+            for col in ["uid", "label", "premise", "hypothesis"]:
+                if "\t" in str(row[col]):
+                    pdb.set_trace()
+            data = (
+                f"{row['uid']}\t{row['label']}\t{row['premise']}\t{row['hypothesis']}\n"
+            )
+        elif data_format == DataFormat.PremiseAndMultiHypothesis:
+            for col in ["uid", "label", "premise"]:
+                if "\t" in str(row[col]):
+                    pdb.set_trace()
+            hypothesis = row["hypothesis"]
+            for one_hypo in hypothesis:
+                if "\t" in str(one_hypo):
+                    pdb.set_trace()
+            hypothesis = "\t".join(hypothesis)
+            data = f"{row['uid']}\t{row['ruid']}\t{row['label']}\t{row['premise']}\t{hypothesis}\n"
+        else:
+            raise ValueError(data_format)
+        processed_rows.append(data)
 
-            # Save data if dump_rows is true
-            if dump_rows:
-                out_f.write(data)
-            processed_rows.append(data)
+    # Save data if dump_rows is true
+    if dump_rows:
+        with open(out_path, mode=write_mode, encoding="utf-8") as out_f:
+            out_f.writelines(processed_rows)
     return processed_rows
 
 
@@ -110,7 +112,6 @@ def load_snli(file_path, kwargs: dict = {}):
 
 def load_mnli(file_path, kwargs: dict = {}):
     """ Load MNLI """
-    print("Inside LOAD MNLI")
     header = kwargs.get("header", True)
     multi_snli = kwargs.get("multi_snli", False)
     is_train = kwargs.get("is_train", True)
