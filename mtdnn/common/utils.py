@@ -18,6 +18,7 @@ import numpy
 import requests
 import torch
 from tqdm import tqdm
+from time import gmtime, strftime
 
 
 class MTDNNCommonUtils:
@@ -70,32 +71,32 @@ class MTDNNCommonUtils:
         return opt_v
 
     @staticmethod
-    def setup_logging(
-        filename="run.log", silent=False, to_disk=True, mode="w"
-    ) -> Logger:
-        logger = logging.getLogger(__name__)
-        log_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    def create_logger(name, silent=False, to_disk=False, log_file="run.log"):
+        """ Logger wrapper """
+        # setup logger
+        log = logging.getLogger(name)
+        log.setLevel(logging.DEBUG)
+        log.propagate = False
+        formatter = logging.Formatter(
+            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%m/%d/%Y %I:%M:%S",
         )
-        if to_disk:
-            log_file_handler = logging.FileHandler(
-                filename=filename, mode=mode, encoding="utf-8"
-            )
-
-            log_file_handler.setFormatter(log_formatter)
-            do_add_handler = True
-            for handler in logger.handlers:
-                if isinstance(handler, logging.FileHandler):
-                    do_add_handler = False
-            if do_add_handler:
-                logger.addHandler(log_file_handler)
-            logger.setLevel(logging.DEBUG)
         if not silent:
             ch = logging.StreamHandler(sys.stdout)
             ch.setLevel(logging.INFO)
-            ch.setFormatter(log_formatter)
-            logger.addHandler(ch)
-        return logger
+            ch.setFormatter(formatter)
+            log.addHandler(ch)
+        if to_disk:
+            log_file = (
+                log_file
+                if log_file is not None
+                else strftime("%Y-%m-%d-%H-%M-%S.log", gmtime())
+            )
+            fh = logging.FileHandler(log_file)
+            fh.setLevel(logging.DEBUG)
+            fh.setFormatter(formatter)
+            log.addHandler(fh)
+        return log
 
     @staticmethod
     def create_directory_if_not_exists(dir_path: str):

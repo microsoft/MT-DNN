@@ -24,11 +24,12 @@ from mtdnn.common.san import SANClassifier
 
 from mtdnn.common.loss import LossCriterion
 from mtdnn.common.metrics import Metric
-from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
+from mtdnn.common.types import DataFormat, EncoderModelType, TaskDefType, TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.common.vocab import Vocabulary
 
-logger = MTDNNCommonUtils.setup_logging()
+
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
 
 TASK_REGISTRY = {}
 TASK_CLASS_NAMES = set()
@@ -735,6 +736,7 @@ class MTDNNTaskDefs:
         loss_map = {}
         kd_loss_map = {}
         data_paths_map = {}
+        split_names_map = {}
 
         # Create an instance of task creator singleton
         task_creator = MTDNNTaskConfig()
@@ -763,6 +765,10 @@ class MTDNNTaskDefs:
                 for label in labels:
                     label_mapper.add(label)
                 global_map[name] = label_mapper
+
+            # split names
+            if hasattr(task, "split_names"):
+                split_names_map[name] = task.split_names
 
             # dropout
             if hasattr(task, "dropout_p"):
@@ -809,6 +815,7 @@ class MTDNNTaskDefs:
         self.loss_map = loss_map
         self.kd_loss_map = kd_loss_map
         self.data_paths_map = data_paths_map
+        self.split_names_map = split_names_map
 
     def get_configured_tasks(self):
         """Returns a list of configured tasks objects by TaskDefs class from the input configuration file
@@ -835,13 +842,26 @@ class MTDNNTaskDefs:
         Returns:
             dict -- Task definition for specified task
         """
-        assert task_name, "[ERROR] - Task name cannot be empty"
-        return {
-            k: v
-            for ele in self.get_configured_tasks()
-            for k, v in ele.items()
-            if ele["task_name"] == task_name
-        }
+        assert task_name in self.task_type_map, "[ERROR] - Task is not configured"
+        # return {
+        #     k: v
+        #     for ele in self.get_configured_tasks()
+        #     for k, v in ele.items()
+        #     if ele["task_name"] == task_name
+        # }
+        return TaskDefType(
+            self.global_map.get(task_name, None),
+            self.n_class_map[task_name],
+            self.data_type_map[task_name],
+            self.task_type_map[task_name],
+            self.metric_meta_map[task_name],
+            self.split_names_map[task_name],
+            self.enable_san_map[task_name],
+            self.dropout_p_map.get(task_name, None),
+            self.loss_map[task_name],
+            self.kd_loss_map[task_name],
+            self.data_paths_map[task_name],
+        )
 
 
 class MTDNNTask:

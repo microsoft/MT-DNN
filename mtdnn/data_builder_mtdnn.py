@@ -32,7 +32,6 @@ from mtdnn.tasks.utils import (
 from mtdnn.tokenizer_mtdnn import MTDNNTokenizer
 
 
-# logger = MTDNNCommonUtils.setup_logging(filename="preprocessor.log")
 logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
 
 # Map of supported tasks

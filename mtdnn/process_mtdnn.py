@@ -22,7 +22,7 @@ from mtdnn.modeling_mtdnn import MTDNNModel
 from mtdnn.tasks.config import MTDNNTaskDefs
 from mtdnn.tasks.utils import submit
 
-logger = MTDNNCommonUtils.setup_logging(mode="w")
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
 
 
 class MTDNNDataProcess:

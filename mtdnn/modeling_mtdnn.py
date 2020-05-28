@@ -59,7 +59,8 @@ from mtdnn.dataset_mtdnn import MTDNNCollater
 from mtdnn.tasks.config import MTDNNTaskDefs
 from mtdnn.tasks.utils import submit
 
-logger = MTDNNCommonUtils.setup_logging()
+
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
 
 # Supported Model Classes Map
 MODEL_CLASSES = {
