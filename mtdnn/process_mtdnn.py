@@ -30,20 +30,35 @@ class MTDNNDataProcess:
         self,
         config: MTDNNConfig,
         task_defs: MTDNNTaskDefs,
+        vectorized_data: dict,
         data_dir: str,
         train_datasets_list: list = ["mnli"],
-        test_datasets_list: list = ["mnli_mismatched,mnli_matched"],
+        test_dev_datasets_list: list = ["mnli_mismatched, mnli_matched"],
         glue_format: bool = False,
         data_sort: bool = False,
     ):
-        assert len(train_datasets_list) >= 1, "Train dataset list cannot be empty"
-        assert len(test_datasets_list) >= 1, "Test dataset list cannot be empty"
+        assert vectorized_data, "[ERROR] - Vectorized data cannot be None"
+        assert (
+            len(train_datasets_list) >= 1
+        ), "[ERROR] - Train dataset list cannot be empty"
+        assert (
+            len(test_dev_datasets_list) >= 1
+        ), "[ERROR] - Test dataset list cannot be empty"
 
         # Initialize class members
         self.config = config
         self.task_defs = task_defs
-        self.train_datasets = train_datasets_list
-        self.test_datasets = test_datasets_list
+        # self.train_datasets_list = train_datasets_list
+        # self.test_datasets_list = test_datasets_list
+        self.train_datasets_list = list(
+            filter(lambda file_name: "train" in file_name, vectorized_data.keys())
+        )
+        self.test_dev_datasets_list = list(
+            filter(
+                lambda file_name: "dev" in file_name or "test" in file_name,
+                vectorized_data.keys(),
+            )
+        )
         self.data_dir = data_dir
         self.glue_format = glue_format
         self.data_sort = data_sort
@@ -75,7 +90,7 @@ class MTDNNDataProcess:
         logger.info("Starting to process the training data sets")
 
         train_datasets = []
-        for dataset in self.train_datasets:
+        for dataset in self.train_datasets_list:
             prefix = dataset.split("_")[0]
             if prefix in self.tasks:
                 continue
@@ -165,7 +180,7 @@ class MTDNNDataProcess:
         test_collater = MTDNNCollater(
             is_train=False, encoder_type=self.config.encoder_type
         )
-        for dataset in self.test_datasets:
+        for dataset in self.test_dev_datasets_list:
             prefix = dataset.split("_")[0]
             task_id = (
                 self.tasks_class[self.task_defs.n_class_map[prefix]]

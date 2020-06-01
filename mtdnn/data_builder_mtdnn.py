@@ -422,7 +422,7 @@ class MTDNNDataBuilder:
                     writer.write(f"{json.dumps(row)}\n")
         return rows
 
-    def featurizer(self):
+    def vectorize(self):
         """ Tokenize and build data for the tasks """
         mtdnn_featurized_data = {}
         for task_split_name, task_data in self.processed_tasks_data.items():
