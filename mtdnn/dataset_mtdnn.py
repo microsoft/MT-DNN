@@ -9,6 +9,7 @@ import torch
 from torch.utils.data import BatchSampler, DataLoader, Dataset
 
 from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
+import numpy as np
 
 UNK_ID = 100
 BOS_ID = 101
@@ -126,6 +127,7 @@ class MTDNNSingleTaskDataset(Dataset):
             data = []
             cnt = 0
             for line in reader:
+                print("Line", path)
                 sample = json.loads(line)
                 sample["factor"] = factor
                 cnt += 1
