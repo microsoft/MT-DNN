@@ -25,7 +25,8 @@ from mtdnn.data_builder_mtdnn import MTDNNDataBuilder
 from mtdnn.tokenizer_mtdnn import MTDNNTokenizer
 
 # ## Define Configuration, Tasks and Model Objects
-DATA_DIR = "../../sample_data/bert_uncased_lower/mnli/"
+# DATA_DIR = "../../sample_data/bert_uncased_lower/mnli/"
+DATA_DIR = "/home/useradmin/sources/mt-dnn-orig/data/canonical_data_2/bert_base_uncased"
 BATCH_SIZE = 16
 
 
@@ -76,8 +77,14 @@ data_builder = MTDNNDataBuilder(
     tokenizer=tokenizer,
     task_defs=task_defs,
     data_dir="/home/useradmin/sources/mt-dnn-orig/data",
+    canonical_data_suffix="canonical_data_2",
+    dump_rows=True,
 )
-sys.exit()
+
+
+## Build data to MTDNN Format
+## Iterable of each specific task and processed data
+vectorized_data = data_builder.vectorize()
 
 
 # ### Create the Data Processing Object
@@ -86,19 +93,13 @@ sys.exit()
 # Define a data process that handles creating the training, test and development PyTorch dataloaders
 # Make the Data Preprocess step and update the config with training data updates
 data_processor = MTDNNDataProcess(
-    config=config,
-    task_defs=task_defs,
-    data_dir=DATA_DIR,
-    train_datasets_list=["mnli"],
-    test_datasets_list=["mnli_mismatched", "mnli_matched"],
+    config=config, task_defs=task_defs, vectorized_data=vectorized_data
 )
-
 
 # Retrieve the processed batch multitask batch data loaders for training, development and test
 multitask_train_dataloader = data_processor.get_train_dataloader()
 dev_dataloaders_list = data_processor.get_dev_dataloaders()
 test_dataloaders_list = data_processor.get_test_dataloaders()
-
 
 # Get training options to initialize model
 decoder_opts = data_processor.get_decoder_options_list()
@@ -136,7 +137,7 @@ model = MTDNNModel(
 # At this point the MT-DNN model allows us to fit to the model
 # and create predictions. The fit takes an optional `epochs`
 # parameter that overwrites the epochs set in the `MTDNNConfig` object.
-model.fit(epoch=1)
+model.fit(epochs=1)
 model.predict()
 
 
