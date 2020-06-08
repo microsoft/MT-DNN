@@ -5,14 +5,20 @@ import random
 import sys
 from shutil import copyfile
 
+import numpy as np
 import torch
+from pytorch_pretrained_bert.tokenization import BertTokenizer
 from torch.utils.data import BatchSampler, DataLoader, Dataset
 
 from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
-import numpy as np
+from mtdnn.common.utils import MTDNNCommonUtils
+from mtdnn.tasks.mlm_utils import create_instances_from_document, load_loose_json
 
 UNK_ID = 100
 BOS_ID = 101
+
+
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
 
 
 class MTDNNMultiTaskBatchSampler(BatchSampler):
@@ -104,68 +110,176 @@ class MTDNNMultiTaskDataset(Dataset):
 class MTDNNSingleTaskDataset(Dataset):
     def __init__(
         self,
-        path,
-        is_train=True,
-        maxlen=128,
-        factor=1.0,
-        task_id=0,
-        task_type=TaskType.Classification,
-        data_type=DataFormat.PremiseOnly,
+        vectorized_data: list,
+        is_train: bool = True,
+        maxlen: int = 512,
+        factor: float = 1.0,
+        task_id: int = 0,
+        task_type: int = TaskType.Classification,
+        data_type: int = DataFormat.PremiseOnly,
+        bert_model: str = "bert-base-uncased",
+        do_lower_case: bool = True,
+        masked_lm_prob: float = 0.15,
+        seed: int = 13,
+        short_seq_prob: float = 0.1,
+        max_seq_length: int = 512,
+        max_predictions_per_seq: int = 80,
     ):
-        self._data = self.load(path, is_train, maxlen, factor, task_type)
+        self._data, self._tokenizer = self.load_vectorized_data(
+            vectorized_data,
+            is_train,
+            maxlen,
+            factor,
+            task_type,
+            bert_model,
+            do_lower_case,
+        )
         self._task_id = task_id
         self._task_type = task_type
         self._data_type = data_type
+
+        # below is for MLM
+        if self._task_type is TaskType.MaskLM:
+            assert self._tokenizer, "[ERROR] - Tokenizer cannot be None"
+
+        # initialize vocab words
+        self._vocab_words = (
+            list(self._tokenizer.vocab.keys()) if self._tokenizer else None
+        )
+
+        self._masked_lm_prob = masked_lm_prob
+        self._seed = seed
+        self._short_seq_prob = short_seq_prob
+        self._max_seq_length = max_seq_length
+        self._max_predictions_per_seq = max_predictions_per_seq
+        self._rng = random.Random(seed)
 
     def get_task_id(self):
         return self._task_id
 
     @staticmethod
-    def load(path, is_train=True, maxlen=128, factor=1.0, task_type=None):
+    def load_vectorized_data(
+        vectorized_data,
+        is_train=True,
+        maxlen=128,
+        factor=1.0,
+        task_type=None,
+        bert_model="bert-base-uncased",
+        do_lower_case=True,
+        masked_lm_prob=0.15,
+        seed=13,
+        short_seq_prob=0.1,
+        max_seq_length=512,
+        max_predictions_per_seq=80,
+    ):
+        """Load Vectorized Data
+
+            Arguments:
+                vectorized_data {[type]} -- [description]
+                
+            Keyword Arguments:
+                is_train {bool} -- If Data is training (default: {True})
+                maxlen {int} -- Maximum length (default: {128})
+                factor {float} -- Sequence Factor (default: {1.0})
+                task_type {[type]} -- ask type to train (default: {None})
+                bert_model {str} -- Model checkpoint (default: {"bert-base-uncased"})
+                do_lower_case {bool} -- Use model checkpoint lower case version (default: {True})
+                masked_lm_prob {float} -- [description] (default: {0.15})
+                seed {int} -- seed value (default: {13})
+                short_seq_prob {float} -- Short sequence probability (default: {0.1})
+                max_seq_length {int} -- Maximum sequene length (default: {512})
+                max_predictions_per_seq {int} -- Max predicitons per sequence (default: {80})
+
+            Returns:
+                list  -- Vectorized data
+            """
+
         assert task_type is not None
-        with open(path, "r", encoding="utf-8") as reader:
-            data = []
-            cnt = 0
-            for line in reader:
-                print("Line", path)
-                sample = json.loads(line)
-                sample["factor"] = factor
-                cnt += 1
-                if is_train:
-                    if (task_type == TaskType.Ranking) and (
-                        len(sample["token_id"][0]) > maxlen
-                        or len(sample["token_id"][1]) > maxlen
-                    ):
-                        continue
-                    if (task_type != TaskType.Ranking) and (
-                        len(sample["token_id"]) > maxlen
-                    ):
-                        continue
-                data.append(sample)
-            print("Loaded {} samples out of {}".format(len(data), cnt))
-        return data
+        data = []
+
+        if task_type == TaskType.MaskLM:
+            tokenizer = BertTokenizer.from_pretrained(
+                bert_model, do_lower_case=do_lower_case
+            )
+            vocab_words = list(tokenizer.vocab.keys())
+            for doc in load_loose_json(vectorized_data):
+                paras = doc["text"].split("\n\n")
+                paras = [para.strip() for para in paras if len(para.strip()) > 0]
+                tokens = [tokenizer.tokenize(para) for para in paras]
+                data.append(tokens)
+            return data, tokenizer
+
+        cnt = 0
+        for sample in vectorized_data:
+            # sample = json.loads(line)
+            sample["factor"] = factor
+            cnt += 1
+            if is_train:
+                if (task_type == TaskType.Ranking) and (
+                    len(sample["token_id"][0]) > maxlen
+                    or len(sample["token_id"][1]) > maxlen
+                ):
+                    continue
+                if (task_type != TaskType.Ranking) and (
+                    len(sample["token_id"]) > maxlen
+                ):
+                    continue
+            data.append(sample)
+        logger.info(f"Loaded {len(data)} samples out of {cnt}")
+        return data, None
 
     def __len__(self):
         return len(self._data)
 
     def __getitem__(self, idx):
-        return {
-            "task": {
-                "task_id": self._task_id,
-                "task_type": self._task_type,
-                "data_type": self._data_type,
-            },
-            "sample": self._data[idx],
-        }
+        if self._task_type == TaskType.MaskLM:
+            # create a MLM instance
+            instances = create_instances_from_document(
+                self._data,
+                idx,
+                self._max_seq_length,
+                self._short_seq_prob,
+                self._masked_lm_prob,
+                self._max_predictions_per_seq,
+                self._vocab_words,
+                self._rng,
+            )
+            instance_ids = list(range(0, len(instances)))
+            choice = np.random.choice(instance_ids, 1)[0]
+            instance = instances[choice]
+            labels = self._tokenizer.convert_tokens_to_ids(instance.masked_lm_labels)
+            position = instance.masked_lm_positions
+            labels = [lab if idx in position else -1 for idx, lab in enumerate(labels)]
+            sample = {
+                "token_id": self._tokenizer.convert_tokens_to_ids(instance.tokens),
+                "type_id": instance.segment_ids,
+                "nsp_lab": 1 if instance.is_random_next else 0,
+                "position": instance.masked_lm_positions,
+                "label": labels,
+                "uid": idx,
+            }
+            return {
+                "task": {"task_id": self._task_id, "task_def": self._task_def},
+                "sample": sample,
+            }
+        else:
+            return {
+                "task": {
+                    "task_id": self._task_id,
+                    "task_type": self._task_type,
+                    "data_type": self._data_type,
+                },
+                "sample": self._data[idx],
+            }
 
 
 class MTDNNCollater:
     def __init__(
         self,
-        is_train=True,
-        dropout_w=0.005,
-        soft_label=False,
-        encoder_type=EncoderModelType.BERT,
+        is_train: bool = True,
+        dropout_w: float = 0.005,
+        soft_label: bool = False,
+        encoder_type: int = EncoderModelType.BERT,
     ):
         self.is_train = is_train
         self.dropout_w = dropout_w
@@ -273,7 +387,7 @@ class MTDNNCollater:
                 # unify to one type of label
                 batch_info["label"] = len(batch_data) - 1
                 # batch_data.extend([torch.LongTensor(start), torch.LongTensor(end)])
-            elif task_type == TaskType.SeqenceLabeling:
+            elif task_type == TaskType.SequenceLabeling:
                 batch_size = self._get_batch_size(batch)
                 tok_len = self._get_max_len(batch, key="token_id")
                 tlab = torch.LongTensor(batch_size, tok_len).fill_(-1)
@@ -282,9 +396,19 @@ class MTDNNCollater:
                     tlab[i, :ll] = torch.LongTensor(label)
                 batch_data.append(tlab)
                 batch_info["label"] = len(batch_data) - 1
+            elif task_type == TaskType.MaskLM:
+                batch_size = self._get_batch_size(batch)
+                tok_len = self._get_max_len(batch, key="token_id")
+                tlab = torch.LongTensor(batch_size, tok_len).fill_(-1)
+                for i, label in enumerate(labels):
+                    ll = len(label)
+                    tlab[i, :ll] = torch.LongTensor(label)
+                labels = torch.LongTensor([sample["nsp_lab"] for sample in batch])
+                batch_data.append((tlab, labels))
+                batch_info["label"] = len(batch_data) - 1
 
             # soft label generated by ensemble models for knowledge distillation
-            if self.soft_label_on and (batch[0].get("softlabel", None) is not None):
+            if self.soft_label_on and batch[0].get("softlabel", None):
                 assert (
                     task_type != TaskType.Span
                 )  # Span task doesn't support soft label yet.

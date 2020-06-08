@@ -1,9 +1,11 @@
 # coding=utf-8
 # Copyright (c) Microsoft. All rights reserved.
 # Code is adpated from https://github.com/google-research/bert
-import json
 import collections
+import json
+import os
 from collections import namedtuple
+from typing import Union
 
 MaskedLmInstance = namedtuple("MaskedLmInstance", ["index", "label"])
 
@@ -40,12 +42,30 @@ class TrainingInstance(object):
         return self.__str__()
 
 
-def load_loose_json(load_path):
+def load_loose_json(load_path_or_vectorized_data: Union[str, list]):
+    """Load vectorized jsonl data. Takes either path to the file or iterable
+
+    Arguments:
+        load_path_or_vectorized_data {Union[str, list]} -- Path to vectorized data or iterable containing data
+
+    Raises:
+        ValueError: Error in input
+
+    Returns:
+        list -- Loaded data
+    """
+    if isinstance(load_path_or_vectorized_data, str):
+        assert os.path.exists(
+            load_path_or_vectorized_data
+        ), "[ERROR] - Load path does not exist."
+        data = open(load_path_or_vectorized_data, "r", encoding="utf-8")
+    elif isinstance(load_path_or_vectorized_data, list):
+        data = load_path_or_vectorized_data
+    else:
+        raise ValueError(load_path_or_vectorized_data)
     rows = []
-    with open(load_path, "r", encoding="utf-8") as f:
-        for line in f:
-            row = json.loads(line)
-            rows.append(row)
+    for line in data:
+        rows.append(json.loads(line))
     return rows
 
 
