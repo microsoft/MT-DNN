@@ -26,8 +26,8 @@ from mtdnn.tokenizer_mtdnn import MTDNNTokenizer
 
 # ## Define Configuration, Tasks and Model Objects
 # DATA_DIR = "../../sample_data/bert_uncased_lower/mnli/"
-DATA_DIR = "/home/useradmin/sources/mt-dnn-orig/data/canonical_data_2/bert_base_uncased"
-BATCH_SIZE = 16
+#DATA_DIR = "/home/useradmin/sources/mt-dnn-orig/data/canonical_data_2/bert_base_uncased"
+BATCH_SIZE = 32 
 
 
 # ### Define a Configuration Object
@@ -57,7 +57,7 @@ tasks_params = {
             "test_matched",
             "test_mismatched",
         ],
-        "data_source_dir": "/home/useradmin/sources/mt-dnn-orig/data/MNLI",
+        "data_source_dir": "MT-DNN/data/MNLI",
         "data_process_opts": {"header": True, "is_train": True, "multi_snli": False,},
         "task_type": "Classification",
     },
@@ -67,8 +67,8 @@ tasks_params = {
 task_defs = MTDNNTaskDefs(tasks_params)
 
 ## Define an MTDNN Tokenizer
-# Default values: model = bert-base-uncased, do_lower = false
-tokenizer = MTDNNTokenizer()
+# Default values: model = bert-base-uncased, do_lower_case = false
+tokenizer = MTDNNTokenizer(do_lower_case = True)
 
 print(tokenizer.encode("He is a boy", "what is he"))
 
@@ -76,7 +76,7 @@ print(tokenizer.encode("He is a boy", "what is he"))
 data_builder = MTDNNDataBuilder(
     tokenizer=tokenizer,
     task_defs=task_defs,
-    data_dir="/home/useradmin/sources/mt-dnn-orig/data",
+    data_dir="MT-DNN/data",
     canonical_data_suffix="canonical_data_2",
     dump_rows=True,
 )
@@ -131,14 +131,14 @@ model = MTDNNModel(
     dev_dataloaders_list=dev_dataloaders_list,
     test_dataloaders_list=test_dataloaders_list,
 )
-
-
-# ### Fit on one epoch and predict using the training and test
-# At this point the MT-DNN model allows us to fit to the model
-# and create predictions. The fit takes an optional `epochs`
-# parameter that overwrites the epochs set in the `MTDNNConfig` object.
-model.fit(epochs=1)
-model.predict()
+#
+#
+## ### Fit on one epoch and predict using the training and test
+## At this point the MT-DNN model allows us to fit to the model
+## and create predictions. The fit takes an optional `epochs`
+## parameter that overwrites the epochs set in the `MTDNNConfig` object.
+model.fit(epochs=5)
+model.predict(trained_model_chckpt="checkpoint/model_4.pt")
 
 
 # ### Obtain predictions with a previously trained model checkpoint
