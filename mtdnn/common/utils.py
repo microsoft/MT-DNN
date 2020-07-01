@@ -5,16 +5,20 @@ import json
 import logging
 import math
 import os
+import random
 import subprocess
+import sys
 import tarfile
 import zipfile
 from contextlib import contextmanager
 from logging import Logger
 from tempfile import TemporaryDirectory
 
+import numpy
 import requests
 import torch
 from tqdm import tqdm
+from time import gmtime, strftime
 
 
 class MTDNNCommonUtils:
@@ -67,23 +71,32 @@ class MTDNNCommonUtils:
         return opt_v
 
     @staticmethod
-    def setup_logging(filename="run.log", mode="w") -> Logger:
-        logger = logging.getLogger(__name__)
-        log_file_handler = logging.FileHandler(
-            filename=filename, mode=mode, encoding="utf-8"
+    def create_logger(name, silent=False, to_disk=False, log_file="run.log"):
+        """ Logger wrapper """
+        # setup logger
+        log = logging.getLogger(name)
+        log.setLevel(logging.DEBUG)
+        log.propagate = False
+        formatter = logging.Formatter(
+            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%m/%d/%Y %I:%M:%S",
         )
-        log_formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        log_file_handler.setFormatter(log_formatter)
-        do_add_handler = True
-        for handler in logger.handlers:
-            if isinstance(handler, logging.FileHandler):
-                do_add_handler = False
-        if do_add_handler:
-            logger.addHandler(log_file_handler)
-        logger.setLevel(logging.DEBUG)
-        return logger
+        if not silent:
+            ch = logging.StreamHandler(sys.stdout)
+            ch.setLevel(logging.INFO)
+            ch.setFormatter(formatter)
+            log.addHandler(ch)
+        if to_disk:
+            log_file = (
+                log_file
+                if log_file is not None
+                else strftime("%Y-%m-%d-%H-%M-%S.log", gmtime())
+            )
+            fh = logging.FileHandler(log_file)
+            fh.setLevel(logging.DEBUG)
+            fh.setFormatter(formatter)
+            log.addHandler(fh)
+        return log
 
     @staticmethod
     def create_directory_if_not_exists(dir_path: str):
@@ -104,7 +117,9 @@ class MTDNNCommonUtils:
             tmp_dir.cleanup()
 
     @staticmethod
-    def maybe_download(url, filename=None, work_directory=".", expected_bytes=None):
+    def maybe_download(
+        url, filename=None, work_directory=".", expected_bytes=None, log: Logger = None
+    ):
         """Download a file if it is not already downloaded.
 
         Args:
