@@ -50,17 +50,29 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
     ```  
 > For Mixed Precision and Distributed Training, please install NVIDIA apex by following instructions [here](https://github.com/NVIDIA/apex#linux)  
 
-## How To Use
+## Run an example  
+An example Jupyter [notebook](./examples/classification/tc_mnli.ipynb) is provided to show a runnable example using the MNLI dataset. The notebook reads and loads the MNLI data provided for your convenience [here](./sample_data).  This dataset is mainly used for natural language inference (NLI) tasks, where the inputs are sentence pairs and the labels are entailment indicators.  
+
+## How To Use  
+
+
 1. Create a model configuration object, `MTDNNConfig`, with the necessary parameters to initialize the MT-DNN model. Initialization without any parameters will default to a similar configuration that initializes a BERT model. This configuration object can be initialized wit training and learning parameters like `batch_size` and `learning_rate`. Please consult the class implementation for all parameters.   
 
     ```Python
     BATCH_SIZE = 16
-    config = MTDNNConfig(batch_size=BATCH_SIZE)
+    MULTI_GPU_ON = True
+    MAX_SEQ_LEN = 128
+    NUM_EPOCHS = 5
+    config = MTDNNConfig(batch_size=BATCH_SIZE, 
+                        max_seq_len=MAX_SEQ_LEN, 
+                        multi_gpu_on=MULTI_GPU_ON)
     ```
 
-1. Define the task parameters to train for and initialize an `MTDNNTaskDefs` object.  
+1. Define the task parameters to train for and initialize an `MTDNNTaskDefs` object. Definition can be a single or multiple tasks to train. MTDNNTaskDefs can take a python dict, yaml or json file with task(s) defintion. 
 
     ```Python
+    DATA_DIR = "../../sample_data/"
+    DATA_SOURCE_DIR = os.path.join(DATA_DIR, "MNLI")
     tasks_params = {
                     "mnli": {
                         "data_format": "PremiseAndOneHypothesis",
@@ -74,33 +86,52 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
                         "n_class": 3,
                         "split_names": [
                             "train",
-                            "matched_dev",
-                            "mismatched_dev",
-                            "matched_test",
-                            "mismatched_test",
+                            "dev_matched",
+                            "dev_mismatched",
+                            "test_matched",
+                            "test_mismatched",
                         ],
-                        "data_paths": ["CoLA/train.tsv","CoLA/dev.tsv","CoLA/test.tsv"],
-                        "data_opts": {
-                            "header": True,
-                            "is_train": True,
-                            "multi_snli": False,
-                        },
+                        "data_source_dir": DATA_SOURCE_DIR,
+                        "data_process_opts": {"header": True, "is_train": True, "multi_snli": False,},
                         "task_type": "Classification",
                     },
                 }
+
+    # Define the tasks
     task_defs = MTDNNTaskDefs(tasks_params)
     ```
 
+1. Create a data tokenizing object, `MTDNNTokenizer`. Based on the model initial checkpoint, it wraps around the model's Huggingface transformers library to encode the data to **MT-DNN** format. This becomes the input to the data building stage.  
+
+    ```
+    tokenizer = MTDNNTokenizer(do_lower_case=True)
+
+    # Testing out the tokenizer  
+    print(tokenizer.encode("What NLP toolkit do you recommend", "MT-DNN is a fantastic toolkit"))  
+    
+    # ([101, 2054, 17953, 2361, 6994, 23615, 2079, 2017, 16755, 102, 11047, 1011, 1040, 10695, 2003, 1037, 10392, 6994, 23615, 102], None, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+    ```
+
+1. Create a data preprocessing object, `MTDNNDataBuilder`. This class is responsible for converting the data into the MT-DNN format depending on the task. This object is responsible for creating the vectorized data for each task.   
+
+    ```
+    ## Load and build data
+    data_builder = MTDNNDataBuilder(tokenizer=tokenizer,
+                                    task_defs=task_defs,
+                                    data_dir=DATA_SOURCE_DIR,
+                                    canonical_data_suffix="canonical_data",
+                                    dump_rows=True)
+
+    ## Build data to MTDNN Format as an iterable of each specific task
+    vectorized_data = data_builder.vectorize()
+    ```
+ 
 1. Create a data preprocessing object, `MTDNNDataProcess`. This creates the training, test and development PyTorch dataloaders needed for training and testing. We also need to retrieve the necessary training options required to initialize the model correctly, for all tasks.  
 
     ```Python
-    data_processor = MTDNNDataProcess(
-        config=config,
-        task_defs=task_defs,
-        data_dir="/home/useradmin/sources/mt-dnn/data/canonical_data/bert_uncased_lower",
-        train_datasets_list=["mnli"],
-        test_datasets_list=["mnli_mismatched", "mnli_matched"],
-    )
+    data_processor = MTDNNDataProcess(config=config, 
+                                    task_defs=task_defs, 
+                                    vectorized_data=vectorized_data)
 
     # Retrieve the multi task train, dev and test dataloaders
     multitask_train_dataloader = data_processor.get_train_dataloader()
@@ -138,8 +169,7 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
 1. At this point the MT-DNN model allows us to fit to the model and create predictions. The fit takes an optional `epochs` parameter that overwrites the epochs set in the `MTDNNConfig` object. 
 
     ```Python
-    model.fit()
-    model.predict()
+    model.fit(epochs=NUM_EPOCHS)
     ```
 
 
@@ -148,7 +178,7 @@ Optionally using a previously trained model as checkpoint.
 
     ```Python
     # Predict using a PyTorch model checkpoint
-    checkpt = "./model_0.pt"
+    checkpt = "./checkpoint/model_4.pt"
     model.predict(trained_model_chckpt=checkpt)
 
     ```
