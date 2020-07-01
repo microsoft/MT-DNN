@@ -53,6 +53,8 @@ A [setup.py](./setup.py) file is provided in order to simplify the installation 
 ## Run an example  
 An example Jupyter [notebook](./examples/classification/tc_mnli.ipynb) is provided to show a runnable example using the MNLI dataset. The notebook reads and loads the MNLI data provided for your convenience [here](./sample_data).  This dataset is mainly used for natural language inference (NLI) tasks, where the inputs are sentence pairs and the labels are entailment indicators.  
 
+> **NOTE:** The MNLI data is very large and would need [Git LFS](https://docs.github.com/en/github/managing-large-files/installing-git-large-file-storage) installed on your machine to pull it down.  
+
 ## How To Use  
 
 
