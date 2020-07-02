@@ -1,6 +1,10 @@
 # Multi-Task Deep Neural Networks for Natural Language Understanding
 
-This PyTorch package implements the Multi-Task Deep Neural Networks (MT-DNN) for Natural Language Understanding, as described in:
+MT-DNN, an open-source natural language understanding (NLU) toolkit that makes it easy for researchers and developers to train customized deep learning models. Built upon PyTorch and Transformers, MT-DNN is designed to facilitate rapid customization for a broad spectrum of NLU tasks, using a variety of objectives (classification, regression, structured prediction) and text encoders (e.g., RNNs, BERT, RoBERTa, UniLM).  
+
+A unique feature of MT-DNN is its built-in support for robust and transferable learning using the adversarial multi-task learning paradigm. To enable efficient production deployment, MT-DNN supports multi-task knowledge distillation, which can substantially compress a deep neural model without significant performance drop.  We demonstrate the effectiveness of MT-DNN on a wide range of NLU applications across general and biomedical domains.  
+
+This repository is a pip installable package that implements the Multi-Task Deep Neural Networks (MT-DNN) for Natural Language Understanding, as described in the following papers:
 
 Xiaodong Liu\*, Pengcheng He\*, Weizhu Chen and Jianfeng Gao<br/>
 Multi-Task Deep Neural Networks for Natural Language Understanding<br/>
@@ -25,6 +29,13 @@ Haoming Jiang, Pengcheng He, Weizhu Chen, Xiaodong Liu, Jianfeng Gao and Tuo Zha
 SMART: Robust and Efficient Fine-Tuning for Pre-trained Natural Language Models through Principled Regularized Optimization <br/>
 [arXiv version](https://arxiv.org/abs/1911.03437) <br/>
 
+Xiaodong Liu, Yu Wang, Jianshu Ji, Hao Cheng, Xueyun Zhu, Emmanuel Awa, Pengcheng He, Weizhu Chen, Hoifung Poon, Guihong Cao, Jianfeng Gao<br/>
+The Microsoft Toolkit of Multi-Task Deep Neural Networks for Natural Language Understanding <br/>
+[arXiv version](https://arxiv.org/abs/2002.07972) <br/>
+
+Xiaodong Liu, Hao Cheng, Pengcheng He, Weizhu Chen, Yu Wang, Hoifung Poon and Jianfeng Gao<br/>
+Adversarial Training for Large Neural Language Models <br/>
+[arXiv version](https://arxiv.org/abs/2004.08994) <br/>
 
 ## Pip install package
 A [setup.py](./setup.py) file is provided in order to simplify the installation of this package. 
