@@ -14,16 +14,25 @@ import logging
 import os
 from typing import Union
 
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import yaml
+
+from mtdnn.common.san import SANClassifier
 
 from mtdnn.common.loss import LossCriterion
 from mtdnn.common.metrics import Metric
-from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
-from mtdnn.common.vocab import Vocabulary
+from mtdnn.common.types import DataFormat, EncoderModelType, TaskDefType, TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
+from mtdnn.common.vocab import Vocabulary
 
 
-logger = MTDNNCommonUtils.setup_logging()
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
+
+TASK_REGISTRY = {}
+TASK_CLASS_NAMES = set()
 
 
 class TaskConfig(object):
@@ -39,10 +48,40 @@ class TaskConfig(object):
         """ Define a generic task configuration """
         logger.info("Mapping Task attributes")
 
+        # assert data exists for preprocessing
+        assert (
+            "data_source_dir" in kwargs
+        ), "[ERROR] - Source data directory with data splits not provided"
+        assert (
+            kwargs["data_source_dir"] and type(kwargs["data_source_dir"]) == str
+        ), "[ERROR] - Source data directory path must be a string"
+        assert kwargs[
+            "data_source_dir"
+        ], "[ERROR] - Source data directory path cannot be empty"
+        assert os.path.isdir(
+            kwargs["data_source_dir"]
+        ), "[ERROR] - Source data directory path does not exist"
+
+        assert all(
+            os.path.exists(os.path.join(kwargs["data_source_dir"], f"{split}.tsv"))
+            for split in kwargs["split_names"]
+        ), f"[ERROR] - All data splits do not exist in path - {kwargs['data_source_dir']}"
+
+        assert kwargs[
+            "data_process_opts"
+        ], "[ERROR] - Source data processing options must be set"
+
         # Mapping attributes
         for key, value in kwargs.items():
             try:
-                setattr(self, key, value)
+                if key == "data_source_dir":
+                    data_paths = [
+                        os.path.join(kwargs["data_source_dir"], f"{split}.tsv")
+                        for split in kwargs["split_names"]
+                    ]
+                    setattr(self, "data_paths", data_paths)
+                else:
+                    setattr(self, key, value)
             except AttributeError as err:
                 logger.error(
                     f"[ERROR] - Unable to set {key} with value {value} for {self}"
@@ -244,7 +283,7 @@ class STSBTaskConfig(TaskConfig):
                 "task_name": "stsb",
                 "data_format": "PremiseAndOneHypothesis",
                 "encoder_type": "BERT",
-                "enable_san": false,
+                "enable_san": False,
                 "metric_meta": ["Pearson", "Spearman"],
                 "n_class": 1,
                 "loss": "MseCriterion",
@@ -537,6 +576,23 @@ class SQUADTaskConfig(TaskConfig):
         self.dropout_p = kwargs.pop("dropout_p", 0.1)
 
 
+class MaskLMTaskConfig(TaskConfig):
+    def __init__(self, kwargs: dict = {}):
+        if not kwargs:
+            kwargs = {
+                "task_name": "MaskLM",
+                "data_format": "MLM",
+                "encoder_type": "BERT",
+                "enable_san": False,
+                "metric_meta": ["ACC"],
+                "n_class": 30522,
+                "task_type": "MaskLM",
+                "loss": "MlmCriterion",
+                "split_names": ["train", "dev"],
+            }
+        super(MaskLMTaskConfig, self).__init__(**kwargs)
+
+
 # Map of supported tasks
 SUPPORTED_TASKS_MAP = {
     "cola": COLATaskConfig,
@@ -555,6 +611,7 @@ SUPPORTED_TASKS_MAP = {
     "chunk": CHUNKTaskConfig,
     "squad": SQUADTaskConfig,
     "squad-v2": SQUADTaskConfig,
+    "masklm": MaskLMTaskConfig,
 }
 
 
@@ -598,7 +655,14 @@ class MTDNNTaskDefs:
                     "loss": "CeCriterion",
                     "kd_loss": "MseCriterion",
                     "n_class": 2,
-                    "task_type": "Classification"
+                    "split_names": ["train", "test", "dev"],
+                    "data_paths": ["CoLA/train.tsv","CoLA/dev.tsv","CoLA/test.tsv"],
+                    "data_opts": {
+                        "header": True,
+                        "is_train": True,
+                        "multi_snli": False,
+                    },
+                    "task_type": "Classification",
                 }
                 ...
             }
@@ -618,8 +682,15 @@ class MTDNNTaskDefs:
                         "loss": "CeCriterion",
                         "kd_loss": "MseCriterion",
                         "n_class": 2,
-                        "task_type": "Classification"
-                    }
+                        "split_names": ["train", "test", "dev"],
+                        "data_paths": ["CoLA/train.tsv","CoLA/dev.tsv","CoLA/test.tsv"],
+                        "data_opts": {
+                            "header": True,
+                            "is_train": True,
+                            "multi_snli": False,
+                        },
+                        "task_type": "Classification",
+                }
                 ...
             }
 
@@ -664,6 +735,8 @@ class MTDNNTaskDefs:
         encoderType_map = {}
         loss_map = {}
         kd_loss_map = {}
+        data_paths_map = {}
+        split_names_map = {}
 
         # Create an instance of task creator singleton
         task_creator = MTDNNTaskConfig()
@@ -693,6 +766,10 @@ class MTDNNTaskDefs:
                     label_mapper.add(label)
                 global_map[name] = label_mapper
 
+            # split names
+            if hasattr(task, "split_names"):
+                split_names_map[name] = task.split_names
+
             # dropout
             if hasattr(task, "dropout_p"):
                 dropout_p_map[name] = task.dropout_p
@@ -712,6 +789,13 @@ class MTDNNTaskDefs:
             else:
                 kd_loss_map[name] = None
 
+            # Map train, test (and dev) data paths
+            data_paths_map[name] = {
+                "data_paths": task.data_paths or [],
+                "data_opts": task.data_process_opts
+                or {"header": True, "is_train": True, "multi_snli": False,},
+            }
+
             # Track configured tasks for downstream
             self._configured_tasks.append(task.to_dict())
 
@@ -730,11 +814,210 @@ class MTDNNTaskDefs:
         self.encoderType = uniq_encoderType.pop()
         self.loss_map = loss_map
         self.kd_loss_map = kd_loss_map
+        self.data_paths_map = data_paths_map
+        self.split_names_map = split_names_map
 
-    def get_configured_tasks(self) -> list:
-        """Returns a list of configured tasks by TaskDefs class from the input configuration file
+    def get_configured_tasks(self):
+        """Returns a list of configured tasks objects by TaskDefs class from the input configuration file
         
         Returns:
             list -- List of configured task classes
         """
         return self._configured_tasks
+
+    def get_task_names(self):
+        """ Returns a list of configured task names
+        
+        Returns:
+            list -- List of configured task classes
+        """
+        return self.task_type_map.keys()
+
+    def get_task_def(self, task_name: str = ""):
+        """Returns a dictionary of parameters for specified task
+
+        Keyword Arguments:
+            task_name {str} -- Task name for definition to get (default: {""})
+
+        Returns:
+            dict -- Task definition for specified task
+        """
+        assert task_name in self.task_type_map, "[ERROR] - Task is not configured"
+        # return {
+        #     k: v
+        #     for ele in self.get_configured_tasks()
+        #     for k, v in ele.items()
+        #     if ele["task_name"] == task_name
+        # }
+        return TaskDefType(
+            self.global_map.get(task_name, None),
+            self.n_class_map[task_name],
+            self.data_type_map[task_name],
+            self.task_type_map[task_name],
+            self.metric_meta_map[task_name],
+            self.split_names_map[task_name],
+            self.enable_san_map[task_name],
+            self.dropout_p_map.get(task_name, None),
+            self.loss_map[task_name],
+            self.kd_loss_map[task_name],
+            self.data_paths_map[task_name],
+        )
+
+
+class MTDNNTask:
+    def __init__(self, task_def):
+        self._task_def = task_def
+
+    def input_parse_label(self, label: str):
+        raise NotImplementedError()
+
+    @staticmethod
+    def input_is_valid_sample(sample, max_len):
+        return len(sample["token_id"]) <= max_len
+
+    @staticmethod
+    def train_prepare_label(labels):
+        raise NotImplementedError()
+
+    @staticmethod
+    def train_prepare_soft_label(softlabels):
+        raise NotImplementedError()
+
+    @staticmethod
+    def train_build_task_layer(decoder_opt, hidden_size, lab, opt, prefix, dropout):
+        if decoder_opt == 1:
+            out_proj = SANClassifier(
+                hidden_size, hidden_size, lab, opt, prefix, dropout=dropout
+            )
+        else:
+            out_proj = nn.Linear(hidden_size, lab)
+        return out_proj
+
+    @staticmethod
+    def train_forward(
+        sequence_output,
+        pooled_output,
+        premise_mask,
+        hyp_mask,
+        decoder_opt,
+        dropout_layer,
+        task_layer,
+    ):
+        if decoder_opt == 1:
+            max_query = hyp_mask.size(1)
+            assert max_query > 0
+            assert premise_mask is not None
+            assert hyp_mask is not None
+            hyp_mem = sequence_output[:, :max_query, :]
+            logits = task_layer(sequence_output, hyp_mem, premise_mask, hyp_mask)
+        else:
+            pooled_output = dropout_layer(pooled_output)
+            logits = task_layer(pooled_output)
+        return logits
+
+    @staticmethod
+    def test_prepare_label(batch_info, labels):
+        batch_info["label"] = labels
+
+    @staticmethod
+    def test_predict(score):
+        raise NotImplementedError()
+
+
+def register_task(name):
+    """
+        @register_task('Classification')
+        class ClassificationTask(MTDNNTask):
+            (...)
+
+    .. note::
+
+        All Tasks must implement the :class:`~MTDNNTask`
+        interface.
+
+    Args:
+        name (str): the name of the task
+    """
+
+    def register_task_cls(cls):
+        if name in TASK_REGISTRY:
+            raise ValueError("Cannot register duplicate task ({})".format(name))
+        if not issubclass(cls, MTDNNTask):
+            raise ValueError(
+                "Task ({}: {}) must extend MTDNNTask".format(name, cls.__name__)
+            )
+        if cls.__name__ in TASK_CLASS_NAMES:
+            raise ValueError(
+                "Cannot register task with duplicate class name ({})".format(
+                    cls.__name__
+                )
+            )
+        TASK_REGISTRY[name] = cls
+        TASK_CLASS_NAMES.add(cls.__name__)
+        return cls
+
+    return register_task_cls
+
+
+def get_task_obj(task_def):
+    task_name = task_def.task_type.name
+    task_cls = TASK_REGISTRY.get(task_name, None)
+    if task_cls is None:
+        return None
+
+    return task_cls(task_def)
+
+
+@register_task("Regression")
+class RegressionTask(MTDNNTask):
+    def __init__(self, task_def):
+        super().__init__(task_def)
+
+    def input_parse_label(self, label: str):
+        return float(label)
+
+    @staticmethod
+    def train_prepare_label(labels):
+        return torch.FloatTensor(labels)
+
+    @staticmethod
+    def train_prepare_soft_label(softlabels):
+        return torch.FloatTensor(softlabels)
+
+    @staticmethod
+    def test_predict(score):
+        score = score.data.cpu()
+        score = score.numpy()
+        predict = np.argmax(score, axis=1).tolist()
+        score = score.reshape(-1).tolist()
+        return score, predict
+
+
+@register_task("Classification")
+class ClassificationTask(MTDNNTask):
+    def __init__(self, task_def):
+        super().__init__(task_def)
+
+    def input_parse_label(self, label: str):
+        label_dict = self._task_def.label_vocab
+        if label_dict is not None:
+            return label_dict[label]
+        else:
+            return int(label)
+
+    @staticmethod
+    def train_prepare_label(labels):
+        return torch.LongTensor(labels)
+
+    @staticmethod
+    def train_prepare_soft_label(softlabels):
+        return torch.FloatTensor(softlabels)
+
+    @staticmethod
+    def test_predict(score):
+        score = F.softmax(score, dim=1)
+        score = score.data.cpu()
+        score = score.numpy()
+        predict = np.argmax(score, axis=1).tolist()
+        score = score.reshape(-1).tolist()
+        return score, predict

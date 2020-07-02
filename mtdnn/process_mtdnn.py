@@ -9,7 +9,6 @@ import torch
 from tensorboardX import SummaryWriter
 from torch.utils.data import BatchSampler, DataLoader, Dataset
 
-from mtdnn.common.glue.glue_utils import submit
 from mtdnn.common.types import TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
@@ -21,8 +20,9 @@ from mtdnn.dataset_mtdnn import (
 )
 from mtdnn.modeling_mtdnn import MTDNNModel
 from mtdnn.tasks.config import MTDNNTaskDefs
+from mtdnn.tasks.utils import submit
 
-logger = MTDNNCommonUtils.setup_logging(mode="w")
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
 
 
 class MTDNNDataProcess:
@@ -30,21 +30,25 @@ class MTDNNDataProcess:
         self,
         config: MTDNNConfig,
         task_defs: MTDNNTaskDefs,
-        data_dir: str,
-        train_datasets_list: list = ["mnli"],
-        test_datasets_list: list = ["mnli_mismatched,mnli_matched"],
+        vectorized_data: dict,
         glue_format: bool = False,
         data_sort: bool = False,
     ):
-        assert len(train_datasets_list) >= 1, "Train dataset list cannot be empty"
-        assert len(test_datasets_list) >= 1, "Test dataset list cannot be empty"
+        assert vectorized_data, "[ERROR] - Vectorized data cannot be None"
 
         # Initialize class members
         self.config = config
         self.task_defs = task_defs
-        self.train_datasets = train_datasets_list
-        self.test_datasets = test_datasets_list
-        self.data_dir = data_dir
+        self.train_datasets_list = list(
+            filter(lambda file_name: "train" in file_name, vectorized_data.keys())
+        )
+        self.test_dev_datasets_list = list(
+            filter(
+                lambda file_name: "dev" in file_name or "test" in file_name,
+                vectorized_data.keys(),
+            )
+        )
+        self.vectorized_data = vectorized_data
         self.glue_format = glue_format
         self.data_sort = data_sort
         self.tasks = {}
@@ -75,7 +79,7 @@ class MTDNNDataProcess:
         logger.info("Starting to process the training data sets")
 
         train_datasets = []
-        for dataset in self.train_datasets:
+        for dataset in self.train_datasets_list:
             prefix = dataset.split("_")[0]
             if prefix in self.tasks:
                 continue
@@ -121,13 +125,14 @@ class MTDNNDataProcess:
             dropout_p = self.task_defs.dropout_p_map.get(prefix, self.config.dropout_p)
             self.dropout_list.append(dropout_p)
 
-            train_path = os.path.join(self.data_dir, f"{dataset}_train.json")
-            assert os.path.exists(
-                train_path
-            ), f"[ERROR] - Training dataset does not exist"
-            logger.info(f"Loading {train_path} as task {task_id}")
+            train_data = self.vectorized_data[dataset]
+            assert (
+                train_data
+            ), f"[ERROR] - Training dataset for {dataset} does not exist."
+
+            logger.info(f"Loading {dataset} as task {task_id}")
             train_data_set = MTDNNSingleTaskDataset(
-                train_path,
+                train_data,
                 True,
                 maxlen=self.config.max_seq_len,
                 task_id=task_id,
@@ -165,7 +170,7 @@ class MTDNNDataProcess:
         test_collater = MTDNNCollater(
             is_train=False, encoder_type=self.config.encoder_type
         )
-        for dataset in self.test_datasets:
+        for dataset in self.test_dev_datasets_list:
             prefix = dataset.split("_")[0]
             task_id = (
                 self.tasks_class[self.task_defs.n_class_map[prefix]]
@@ -181,46 +186,30 @@ class MTDNNDataProcess:
             assert prefix in self.task_defs.data_type_map
             data_type = self.task_defs.data_type_map[prefix]
 
-            dev_path = os.path.join(self.data_dir, f"{dataset}_dev.json")
-            assert os.path.exists(
-                dev_path
-            ), f"[ERROR] - Dev dataset does not exist: {dev_path}"
-            dev_data = None
-            if os.path.exists(dev_path):
-                dev_data_set = MTDNNSingleTaskDataset(
-                    dev_path,
-                    False,
-                    maxlen=self.config.max_seq_len,
-                    task_id=task_id,
-                    task_type=task_type,
-                    data_type=data_type,
-                )
-                dev_data = DataLoader(
-                    dev_data_set,
-                    batch_size=self.config.batch_size_eval,
-                    collate_fn=test_collater.collate_fn,
-                    pin_memory=self.config.cuda,
-                )
-            dev_dataloaders_list.append(dev_data)
+            # Process datasets for the dev and tests
+            data_rows = self.vectorized_data[dataset]
+            assert (
+                data_rows
+            ), f"[ERROR] - Test/Dev dataset for {dataset} does not exist."
+            logger.info(f"Loading {dataset} as task {task_id}")
+            data_set = MTDNNSingleTaskDataset(
+                data_rows,
+                False,
+                maxlen=self.config.max_seq_len,
+                task_id=task_id,
+                task_type=task_type,
+                data_type=data_type,
+            )
+            data_loader = DataLoader(
+                data_set,
+                batch_size=self.config.batch_size_eval,
+                collate_fn=test_collater.collate_fn,
+                pin_memory=self.config.cuda,
+            )
 
-            test_path = os.path.join(self.data_dir, f"{dataset}_test.json")
-            test_data = None
-            if os.path.exists(test_path):
-                test_data_set = MTDNNSingleTaskDataset(
-                    test_path,
-                    False,
-                    maxlen=self.config.max_seq_len,
-                    task_id=task_id,
-                    task_type=task_type,
-                    data_type=data_type,
-                )
-                test_data = DataLoader(
-                    test_data_set,
-                    batch_size=self.config.batch_size_eval,
-                    collate_fn=test_collater.collate_fn,
-                    pin_memory=self.config.cuda,
-                )
-            test_dataloaders_list.append(test_data)
+            dev_dataloaders_list.append(
+                data_loader
+            ) if "dev" in dataset else test_dataloaders_list.append(data_loader)
 
         # Return tuple of dev and test dataloaders
         return dev_dataloaders_list, test_dataloaders_list
