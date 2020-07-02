@@ -15,18 +15,32 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
+from apex import amp
 from fairseq.models.roberta import RobertaModel as FairseqRobertModel
+from pytorch_pretrained_bert import BertAdam as Adam
 from tensorboardX import SummaryWriter
 from torch import nn
 from torch.optim.lr_scheduler import *
 from torch.utils.data import DataLoader
 from transformers import (
+    AlbertConfig,
+    AlbertModel,
+    AlbertTokenizer,
     BertConfig,
     BertModel,
     BertPreTrainedModel,
+    BertTokenizer,
     PretrainedConfig,
     PreTrainedModel,
+    RobertaConfig,
     RobertaModel,
+    RobertaTokenizer,
+    XLMRobertaConfig,
+    XLMRobertaModel,
+    XLMRobertaTokenizer,
+    XLNetConfig,
+    XLNetModel,
+    XLNetTokenizer,
 )
 
 from mtdnn.common.archive_maps import PRETRAINED_MODEL_ARCHIVE_MAP
@@ -36,14 +50,27 @@ from mtdnn.common.linear_pooler import LinearPooler
 from mtdnn.common.loss import LOSS_REGISTRY
 from mtdnn.common.metrics import calc_metrics
 from mtdnn.common.san import SANBERTNetwork, SANClassifier
+from mtdnn.common.san_model import SanModel
 from mtdnn.common.squad_utils import extract_answer, merge_answers, select_answers
 from mtdnn.common.types import DataFormat, EncoderModelType, TaskType
 from mtdnn.common.utils import MTDNNCommonUtils
 from mtdnn.configuration_mtdnn import MTDNNConfig
 from mtdnn.dataset_mtdnn import MTDNNCollater
 from mtdnn.tasks.config import MTDNNTaskDefs
+from mtdnn.tasks.utils import submit
 
-logger = MTDNNCommonUtils.setup_logging()
+
+logger = MTDNNCommonUtils.create_logger(__name__, to_disk=True)
+
+# Supported Model Classes Map
+MODEL_CLASSES = {
+    "bert": (BertConfig, BertModel, BertTokenizer),
+    "xlnet": (XLNetConfig, XLNetModel, XLNetTokenizer),
+    "roberta": (RobertaConfig, RobertaModel, RobertaTokenizer),
+    "albert": (AlbertConfig, AlbertModel, AlbertTokenizer),
+    "xlmroberta": (XLMRobertaConfig, XLMRobertaModel, XLMRobertaTokenizer),
+    "san": (BertConfig, SanModel, BertTokenizer),
+}
 
 
 class MTDNNPretrainedModel(nn.Module):
@@ -163,7 +190,8 @@ class MTDNNModel(MTDNNPretrainedModel):
             with MTDNNCommonUtils.download_path() as file_path:
                 path = pathlib.Path(file_path)
                 self.local_model_path = MTDNNCommonUtils.maybe_download(
-                    url=self.pretrained_model_archive_map[pretrained_model_name]
+                    url=self.pretrained_model_archive_map[pretrained_model_name],
+                    log=logger,
                 )
             self.bert_model = MTDNNCommonUtils.load_pytorch_model(self.local_model_path)
             self.state_dict = self.bert_model["state"]
@@ -306,8 +334,6 @@ class MTDNNModel(MTDNNPretrainedModel):
 
         if self.config.fp16:
             try:
-                from apex import amp
-
                 global amp
             except ImportError:
                 raise ImportError(
