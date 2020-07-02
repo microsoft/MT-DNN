@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 # This file outputs a requirements.txt based on the libraries defined in generate_conda_file.py
-from generate_conda_file import (
+from scripts.generate_conda_file import (
     CONDA_BASE,
     CONDA_GPU,
     PIP_BASE,
