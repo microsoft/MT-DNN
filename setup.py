@@ -92,7 +92,7 @@ setup(
         "future",
         "fairseq==0.8.0",
         "seqeval==0.0.12",
-        "transformers==2.9.0",
+        "transformers==4.30.0",
     ],
     dependency_links=[],
     extras_require={},
